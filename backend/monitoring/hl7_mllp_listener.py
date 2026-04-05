@@ -136,6 +136,7 @@ def _handle_client(conn: socket.socket, addr: tuple) -> None:
 
 
 def _serve_forever(host: str, port: int) -> None:
+    global _thread_started
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
@@ -153,6 +154,8 @@ def _serve_forever(host: str, port: int) -> None:
             t.start()
     except OSError as e:
         log.error("HL7 server xato: %s", e)
+        with _lock:
+            _thread_started = False
     finally:
         try:
             srv.close()
