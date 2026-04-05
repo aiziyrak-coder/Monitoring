@@ -18,6 +18,24 @@ export function cascadeFromBedId(
   };
 }
 
+/** Jadvalda ko‘rsatish: bo‘lim › palata › karavat (ID joy topilmasa — o‘zi). */
+export function formatBedLocationLine(
+  bedId: string | null | undefined,
+  beds: any[],
+  rooms: any[],
+  departments: any[]
+): string {
+  if (!bedId) return '';
+  const bed = beds.find((b) => b.id === bedId);
+  if (!bed) return bedId;
+  const room = rooms.find((r) => r.id === bed.roomId);
+  const dept = room ? departments.find((d) => d.id === room.departmentId) : null;
+  const d = dept?.name ?? '—';
+  const r = room?.name ?? '—';
+  const k = bed.name || '—';
+  return `${d} › ${r} › ${k}`;
+}
+
 const selectClass =
   'w-full bg-white border border-zinc-300 rounded-lg px-3 py-2.5 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed';
 

@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { FRONTEND_BUILD_LABEL } from '../buildInfo';
 import { AdmitPatientModal } from './AdmitPatientModal';
 import { DeviceBedAssignModal, DeviceFormModal } from './DeviceFormModal';
+import { formatBedLocationLine } from './LocationCascadeSelects';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -462,7 +463,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                           >
                             /version.txt
                           </a>
-                          {' '}oching: ichida <code className="bg-white px-1 rounded">deploy-verify-v1</code> bo&apos;lishi kerak. Yo&apos;q bo&apos;lsa — deploy yoki noto&apos;g&apos;ri domen (
+                          {' '}oching: ichida <code className="bg-white px-1 rounded">bed-path-table-v1</code> bo&apos;lishi kerak. Yo&apos;q bo&apos;lsa — deploy yoki noto&apos;g&apos;ri domen (
                           <code className="bg-white px-1 rounded">clinicmonitoring.ziyrak.org</code>
                           ).
                         </p>
@@ -498,10 +499,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                               <td className="px-4 py-3 text-xs font-mono text-zinc-600 max-w-[140px] truncate" title={device.hl7SendingApplication || ''}>
                                 {device.hl7SendingApplication || '—'}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3 max-w-[min(280px,36vw)]">
                                 {device.bedId ? (
                                   <div className="flex flex-col gap-1 items-start">
-                                    <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded border border-blue-200 text-xs font-mono">{device.bedId}</span>
+                                    <span
+                                      className="text-sm text-zinc-800 leading-snug"
+                                      title={device.bedId}
+                                    >
+                                      {formatBedLocationLine(
+                                        device.bedId,
+                                        data.beds || [],
+                                        data.rooms || [],
+                                        data.departments || []
+                                      )}
+                                    </span>
+                                    <span className="text-[10px] font-mono text-zinc-400">ID: {device.bedId}</span>
                                     <button
                                       type="button"
                                       onClick={() => assignBedToDevice(device)}

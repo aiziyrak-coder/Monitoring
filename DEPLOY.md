@@ -66,7 +66,7 @@ git push -u origin main
 
 - https://clinicmonitoringapi.ziyrak.org/api/health  
 - https://clinicmonitoring.ziyrak.org  
-- https://clinicmonitoring.ziyrak.org/version.txt — bitta qator (`deploy-verify-v1` yoki `buildInfo` dagi yangi yorliq); agar HTML (bosh sahifa) chiqsa, yangi `dist` joylanmagan yoki noto‘g‘ri `root`.
+- https://clinicmonitoring.ziyrak.org/version.txt — bitta qator (`bed-path-table-v1` yoki `buildInfo` dagi yangi yorliq); agar HTML (bosh sahifa) chiqsa, yangi `dist` joylanmagan yoki noto‘g‘ri `root`.
 
 Repository: [github.com/aiziyrak-coder/Monitoring](https://github.com/aiziyrak-coder/Monitoring)
 
