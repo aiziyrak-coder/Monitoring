@@ -52,13 +52,16 @@ if command -v docker >/dev/null 2>&1; then
   docker stop clinic-monitoring-api 2>/dev/null || true
 fi
 
-if [[ -f /etc/systemd/system/clinicmonitoring-backend.service ]]; then
-  systemctl daemon-reload
-  systemctl enable clinicmonitoring-backend
-  systemctl restart clinicmonitoring-backend
-else
-  echo "Ogohlantirish: systemd unit yo'q. Serverda bir marta: bash $APP_DIR/deploy/bootstrap-server.sh"
+# systemd unit har deployda repodan (eski PORT=8000 qolmasin)
+install -m 644 "$APP_DIR/deploy/systemd/clinicmonitoring-backend.service" /etc/systemd/system/clinicmonitoring-backend.service
+if [[ -f /etc/clinicmonitoring.env ]]; then
+  if grep -qE '^PORT=' /etc/clinicmonitoring.env; then
+    sed -i 's/^PORT=.*/PORT=8010/' /etc/clinicmonitoring.env
+  fi
 fi
+systemctl daemon-reload
+systemctl enable clinicmonitoring-backend
+systemctl restart clinicmonitoring-backend
 
 # --- Frontend ---
 cd "$APP_DIR/frontend"
