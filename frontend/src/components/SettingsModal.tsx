@@ -13,7 +13,7 @@ type SettingsPromptField =
   | { name: string; label: string; kind: 'select'; options: { value: string; label: string }[] };
 
 // Custom Dialogs to replace prompt/confirm in iframe
-function CustomPrompt({ isOpen, title, fields, initialValues, onSubmit, onCancel }: { isOpen: boolean, title: string, fields: SettingsPromptField[], initialValues?: Record<string, string>, onSubmit: (data: any) => void, onCancel: () => void }) {
+function CustomPrompt({ isOpen, title, description, fields, initialValues, onSubmit, onCancel }: { isOpen: boolean, title: string, description?: string, fields: SettingsPromptField[], initialValues?: Record<string, string>, onSubmit: (data: any) => void, onCancel: () => void }) {
   const [values, setValues] = useState<Record<string, string>>({});
   
   useEffect(() => {
@@ -26,10 +26,15 @@ function CustomPrompt({ isOpen, title, fields, initialValues, onSubmit, onCancel
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm p-4">
-      <div className="bg-white border border-zinc-200 rounded-xl w-full max-w-md p-6 shadow-2xl">
-        <h3 className="text-lg font-bold text-zinc-900 mb-4">{title}</h3>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit(values); }}>
-          <div className="space-y-4 mb-6">
+      <div className="bg-white border border-zinc-200 rounded-xl w-full max-w-lg max-h-[90vh] shadow-2xl overflow-hidden flex flex-col">
+        <div className="px-6 pt-5 pb-2 shrink-0 border-b border-zinc-100">
+          <h3 className="text-lg font-bold text-zinc-900">{title}</h3>
+          {description ? (
+            <p className="text-xs text-zinc-500 mt-2 leading-relaxed">{description}</p>
+          ) : null}
+        </div>
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit(values); }} className="flex flex-col min-h-0 flex-1 px-6 pb-5 pt-4">
+          <div className="space-y-4 mb-4 overflow-y-auto min-h-0 max-h-[min(52vh,420px)] pr-1 -mr-1">
             {fields.map((f, idx) => (
               <div key={f.name}>
                 <label className="block text-sm text-zinc-600 mb-1">{f.label}</label>
@@ -58,7 +63,7 @@ function CustomPrompt({ isOpen, title, fields, initialValues, onSubmit, onCancel
               </div>
             ))}
           </div>
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end space-x-3 pt-2 border-t border-zinc-100 shrink-0 mt-auto">
             <button type="button" onClick={onCancel} className="px-4 py-2 text-zinc-500 hover:text-zinc-900 transition-colors">Bekor qilish</button>
             <button type="submit" className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">Saqlash</button>
           </div>
@@ -110,7 +115,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [showAdmitPatient, setShowAdmitPatient] = useState(false);
 
   // Dialog states
-  const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, fields: SettingsPromptField[], initialValues?: Record<string, string>, onSubmit: (data: any) => void} | null>(null);
+  const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, description?: string, fields: SettingsPromptField[], initialValues?: Record<string, string>, onSubmit: (data: any) => void} | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
 
   const fetchData = async (signal?: AbortSignal) => {
@@ -259,17 +264,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setPromptConfig({
       isOpen: true,
       title: "Yangi qurilma qo'shish",
+      description:
+        (data.beds?.length ?? 0) === 0
+          ? "Avval «Tuzilma» bo‘limida bo‘lim → xona → joy yarating. Keyin bu yerda joyni tanlang."
+          : "«Joy»ni tanlang — monitor vitallari shu joydagi bemorga tushadi. Barcha qatorlarni ko‘rish uchun ichkarini pastga skrolling.",
       fields: [
-        { name: 'ipAddress', label: "Lokal IP (LAN)", placeholder: "192.168.0.228" },
-        { name: 'macAddress', label: "MAC Manzil", placeholder: "00:1A:2B:3C:4D:5E" },
+        { name: 'ipAddress', label: "IP manzil (monitor LAN)", placeholder: "192.168.0.228" },
+        { name: 'macAddress', label: "MAC manzil", placeholder: "00:1A:2B:3C:4D:5E" },
         { name: 'model', label: "Model", placeholder: "Mindray uMEC10" },
-        { name: 'hl7SendingApplication', label: "HL7 MSH-3 (ixtiyoriy, bir routerdan bir nechta monitor)", placeholder: "Masalan: uMEC10-1" },
         {
           name: 'bedId',
-          label: "Qaysi joyga biriktiramiz? (xona — joy)",
+          label: "Joyga biriktirish (xona — krevat)",
           kind: 'select',
           options: bedOpts,
         },
+        { name: 'hl7SendingApplication', label: "HL7 MSH-3 (ixtiyoriy)", placeholder: "Bir nechta monitor / NAT" },
       ],
       onSubmit: async (vals) => {
         if (!vals.ipAddress) return closeDialogs();
@@ -304,6 +313,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setPromptConfig({
       isOpen: true,
       title: "Qurilmani tahrirlash",
+      description: "Joy tanlash ro‘yxati pastda. Ko‘rinmasa, skroll qiling.",
       initialValues: {
         ipAddress: device.ipAddress ?? '',
         macAddress: device.macAddress ?? '',
@@ -312,11 +322,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         bedId: device.bedId ?? '',
       },
       fields: [
-        { name: 'ipAddress', label: "Lokal IP (LAN)", placeholder: "192.168.0.228" },
-        { name: 'macAddress', label: "MAC Manzil", placeholder: "" },
+        { name: 'ipAddress', label: "IP manzil (LAN)", placeholder: "192.168.0.228" },
+        { name: 'macAddress', label: "MAC manzil", placeholder: "" },
         { name: 'model', label: "Model", placeholder: "" },
+        { name: 'bedId', label: "Joyga biriktirish (xona — krevat)", kind: 'select', options: bedOpts },
         { name: 'hl7SendingApplication', label: "HL7 MSH-3 (ixtiyoriy)", placeholder: "" },
-        { name: 'bedId', label: "Joy (xona — krevat)", kind: 'select', options: bedOpts },
       ],
       onSubmit: async (vals) => {
         try {
@@ -350,11 +360,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     setPromptConfig({
       isOpen: true,
       title: "Qurilmani joyga biriktirish",
+      description:
+        (data.beds?.length ?? 0) === 0
+          ? "«Tuzilma»da hali joy yo‘q — avval yarating."
+          : "Quyidagi ro‘yxatdan joyni tanlang.",
       initialValues: { bedId: device.bedId ?? '' },
       fields: [
         {
           name: 'bedId',
-          label: "Tuzilma bo'limida yaratilgan joyni tanlang",
+          label: "Joy (xona — krevat)",
           kind: 'select',
           options: bedOpts,
         },
