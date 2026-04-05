@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async
 from django.db import transaction
 from django.utils import timezone
 
-from monitoring.models import ClinicalNote, Patient
+from monitoring.models import Bed, ClinicalNote, Patient
 from monitoring.services.news2 import (
     DEFAULT_ALARM_LIMITS,
     calculate_news2,
@@ -126,10 +126,21 @@ def register_socket_handlers(sio) -> None:
 
         def _run():
             now_ms = int(time.time() * 1000)
+            bed_pk = data.get("bedId") or data.get("bed_id")
+            bed_obj = None
+            room_str = (data.get("room") or "").strip()
+            if bed_pk:
+                bed_obj = (
+                    Bed.objects.select_related("room")
+                    .filter(pk=bed_pk)
+                    .first()
+                )
+                if bed_obj:
+                    room_str = f"{bed_obj.room.name} - {bed_obj.name}"
             with transaction.atomic():
                 p = Patient(
                     name=data.get("name") or "Noma'lum",
-                    room=data.get("room") or "",
+                    room=room_str,
                     diagnosis=data.get("diagnosis") or "",
                     doctor=data.get("doctor") or "",
                     assigned_nurse=data.get("assignedNurse") or "",
@@ -151,6 +162,7 @@ def register_socket_handlers(sio) -> None:
                     },
                     news2_score=0,
                     is_pinned=False,
+                    bed=bed_obj,
                 )
                 p.save()
                 v = vitals_from_patient_row(p)

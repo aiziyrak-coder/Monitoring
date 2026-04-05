@@ -9,7 +9,7 @@ from django.db import close_old_connections, transaction
 
 from monitoring.asgi_support import schedule_coro
 from monitoring.io_bus import sio
-from monitoring.models import Patient, VitalHistory
+from monitoring.models import Device, Patient, VitalHistory
 from monitoring.services.device_ingest import build_vitals_socket_payload
 from monitoring.services.news2 import (
     DEFAULT_ALARM_LIMITS,
@@ -40,11 +40,17 @@ def run_simulation_tick() -> None:
     if not patient_ids:
         return
 
+    beds_with_device = frozenset(
+        Device.objects.exclude(bed_id__isnull=True).values_list("bed_id", flat=True)
+    )
+
     updates: list[dict[str, Any]] = []
 
     with transaction.atomic():
         for pid in patient_ids:
             p = Patient.objects.select_for_update().get(pk=pid)
+            if p.bed_id and p.bed_id in beds_with_device:
+                continue
             limits = p.alarm_limits or DEFAULT_ALARM_LIMITS
             if not p.alarm_limits:
                 p.alarm_limits = {**DEFAULT_ALARM_LIMITS}

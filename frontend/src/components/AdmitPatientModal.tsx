@@ -35,7 +35,7 @@ export function AdmitPatientModal({ onClose }: { onClose: () => void }) {
 
   const [formData, setFormData] = useState({
     name: '',
-    room: '',
+    bedId: '',
     diagnosis: '',
     doctor: '',
     assignedNurse: ''
@@ -88,23 +88,26 @@ export function AdmitPatientModal({ onClose }: { onClose: () => void }) {
           </div>
           
           <div>
-            <label htmlFor="room" className="block text-sm font-medium text-zinc-600 mb-1">Xona / Palata</label>
+            <label htmlFor="bedId" className="block text-sm font-medium text-zinc-600 mb-1">Xona / Joy (bed)</label>
             <select 
-              id="room" 
-              name="room" 
+              id="bedId" 
+              name="bedId" 
               required
-              value={formData.room}
+              value={formData.bedId}
               onChange={handleChange}
-              disabled={isLoading || !!error}
+              disabled={isLoading || !!error || beds.length === 0}
               className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all disabled:opacity-50"
             >
-              <option value="">{isLoading ? 'Yuklanmoqda...' : 'Joyni tanlang...'}</option>
+              <option value="">{isLoading ? 'Yuklanmoqda...' : beds.length === 0 ? 'Avval tuzilmada joy yarating' : 'Joyni tanlang...'}</option>
               {beds.map(bed => {
                 const room = rooms.find(r => r.id === bed.roomId);
                 const label = room ? `${room.name} - ${bed.name}` : bed.name;
-                return <option key={bed.id} value={label}>{label}</option>;
+                return <option key={bed.id} value={bed.id}>{label}</option>;
               })}
             </select>
+            <p className="mt-1 text-xs text-zinc-500">
+              Monitor vitallari uchun: shu joyga qurilma ham biriktirilgan bo&apos;lishi kerak (Sozlamalar → Qurilmalar).
+            </p>
           </div>
 
           <div>

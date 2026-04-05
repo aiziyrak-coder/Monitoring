@@ -1,6 +1,7 @@
 """Qurilma vitallari (REST JSON / HL7 dan keyin) — DB + socket payload."""
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -14,6 +15,8 @@ from monitoring.services.news2 import (
 )
 from monitoring.services.patient_payload import patient_to_wire_dict
 from monitoring.services.vitals_alarm import apply_limit_alarms, apply_scheduled_check_window
+
+log = logging.getLogger(__name__)
 
 
 def build_vitals_socket_payload(wire: dict) -> dict[str, Any]:
@@ -48,6 +51,10 @@ def apply_device_vitals_dict(dev: Device, body: dict) -> dict[str, Any] | None:
 
     p = Patient.objects.filter(bed_id=dev.bed_id).first()
     if not p:
+        log.warning(
+            "Qurilma joyga biriktirilgan (bed=%s), lekin shu joyda bemor yo'q — vitallar yozilmaydi",
+            dev.bed_id,
+        )
         return None
 
     for src, dst in (
