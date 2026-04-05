@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { X, MonitorSmartphone, MapPin } from 'lucide-react';
-import { FRONTEND_BUILD_LABEL } from '../buildInfo';
 import { apiUrl } from '../lib/api';
 import { cascadeFromBedId, LocationCascadeSelects } from './LocationCascadeSelects';
 
@@ -124,7 +123,6 @@ export function DeviceFormModal({
                 Avval <strong>qaysi xonaning qaysi joyiga</strong> tegishliligini tanlang. Bemor shu joyga{' '}
                 <strong>qabul qilinganda</strong> monitor (HL7) ma’lumotlari shu bemor kartasiga chiqadi.
               </p>
-              <p className="text-[10px] font-mono text-emerald-900/80 mt-2">Build: {FRONTEND_BUILD_LABEL}</p>
             </div>
           </div>
           <button
