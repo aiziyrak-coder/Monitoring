@@ -1,4 +1,5 @@
 import ipaddress
+import socket
 import time
 
 from django.conf import settings
@@ -39,6 +40,23 @@ def _parse_nat_ip(raw) -> str | None:
     return s
 
 
+def _local_hl7_tcp_open() -> bool:
+    """127.0.0.1:HL7 port — jarayon tinglayaptimi (server ichida tekshiruv)."""
+    port = int(settings.HL7_LISTEN_PORT)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1.0)
+    try:
+        s.connect(("127.0.0.1", port))
+        return True
+    except OSError:
+        return False
+    finally:
+        try:
+            s.close()
+        except OSError:
+            pass
+
+
 def _ingest_vitals_response(dev: Device, request) -> Response:
     body = request.data if isinstance(request.data, dict) else {}
     payload = apply_device_vitals_dict(dev, body)
@@ -49,15 +67,17 @@ def _ingest_vitals_response(dev: Device, request) -> Response:
 
 class HealthView(APIView):
     def get(self, request):
+        hl7_on = bool(settings.HL7_LISTENER_ENABLED)
         return Response(
             {
                 "status": "ok",
                 "uptime": time.monotonic(),
                 "service": "clinic-monitoring-django",
                 "hl7": {
-                    "enabled": bool(settings.HL7_LISTENER_ENABLED),
+                    "enabled": hl7_on,
                     "listenHost": settings.HL7_LISTEN_HOST,
                     "listenPort": settings.HL7_LISTEN_PORT,
+                    "localTcpAccepts": _local_hl7_tcp_open() if hl7_on else None,
                 },
                 "deviceOfflineAfterSec": settings.DEVICE_ONLINE_SILENCE_SEC,
             }
