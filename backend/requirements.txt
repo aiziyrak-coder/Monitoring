@@ -1,0 +1,18 @@
+# Django + DRF
+Django>=5.1,<6
+djangorestframework>=3.15
+django-cors-headers>=4.6
+django-filter>=24.3
+
+# Realtime (Socket.IO protocol — frontend socket.io-client bilan mos)
+python-socketio[client]>=5.11
+python-engineio>=4.9
+
+# WSGI server (Windows/Linux; Socket.IO threading bilan mos)
+waitress>=3.0
+
+# Linux production uchun (Windowsda ishlamaydi):
+# gunicorn>=23.0
+
+# Production DB (ixtiyoriy; standart SQLite)
+# psycopg[binary]>=3.2

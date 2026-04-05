@@ -1,0 +1,57 @@
+# CI + serverga deploy (SSH kalit orqali; parol ishlatilmaydi).
+# GitHub → Settings → Secrets → DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+
+name: CI and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+        env:
+          VITE_API_ORIGIN: https://clinicmonitoringapi.ziyrak.org
+
+  deploy:
+    needs: frontend-ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP=/opt/clinicmonitoring
+            mkdir -p /opt
+            if [ ! -d "$APP/.git" ]; then
+              git clone https://github.com/aiziyrak-coder/Monitoring.git "$APP"
+            fi
+            cd "$APP"
+            git remote set-url origin https://github.com/aiziyrak-coder/Monitoring.git
+            git fetch origin
+            git checkout main
+            git reset --hard origin/main
+            chmod +x deploy/remote-update.sh || true
+            bash deploy/remote-update.sh
