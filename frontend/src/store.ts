@@ -118,7 +118,6 @@ interface AppState {
   setAllSchedules: (intervalMs: number) => void;
   clearAlarm: (patientId: string) => void;
   updateLimits: (patientId: string, limits: Partial<AlarmLimits>) => void;
-  measureNibp: (patientId: string) => void;
   admitPatient: (data: Partial<PatientData>) => void;
   dischargePatient: (patientId: string) => void;
   connect: () => void;
@@ -173,12 +172,6 @@ export const useStore = create<AppState>((set, get) => ({
     const socket = get().socket;
     if (socket) {
       socket.emit('update_limits', { patientId, limits });
-    }
-  },
-  measureNibp: (patientId) => {
-    const socket = get().socket;
-    if (socket) {
-      socket.emit('measure_nibp', { patientId });
     }
   },
   admitPatient: (data) => {

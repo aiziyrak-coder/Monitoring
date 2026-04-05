@@ -39,7 +39,10 @@ def _seed_history(p: Patient, now_ms: int) -> None:
 
 
 class Command(BaseCommand):
-    help = "Demo kasalxona, bemorlar va tarix (bir marta ishga tushirish)."
+    help = (
+        "SINOV: demo bo'limlar, bemorlar va tarix. Productionda ishlatmang — "
+        "clear_monitoring_patients --yes bilan tozalang."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -49,6 +52,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        self.stdout.write(
+            self.style.WARNING(
+                "seed_demo — faqat mahalliy sinov. Haqiqiy bemorni qo'lda qabul qiling yoki API orqali kiriting."
+            )
+        )
         if options["force"]:
             Patient.objects.all().delete()
             Device.objects.all().delete()

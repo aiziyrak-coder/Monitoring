@@ -14,6 +14,11 @@ class MonitoringConfig(AppConfig):
             return
         if "runserver" in sys.argv and os.environ.get("RUN_MAIN") != "true":
             return
+        # Production (DEBUG=false): faqat qurilma REST / socket — tasodifiy vitallar yo'q
+        from django.conf import settings
+
+        if not settings.DEBUG:
+            return
         if os.environ.get("SKIP_SIMULATION") == "1":
             return
         from monitoring.simulation_runner import ensure_simulation_started

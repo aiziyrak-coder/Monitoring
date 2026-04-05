@@ -10,6 +10,7 @@ EnvironmentFile=-/etc/clinicmonitoring.env
 Environment=BIND_HOST=127.0.0.1
 Environment=PORT=8010
 Environment=DJANGO_SETTINGS_MODULE=config.settings
+Environment=SKIP_SIMULATION=1
 ExecStart=/opt/clinicmonitoring/backend/.venv/bin/python run_dev.py
 Restart=always
 RestartSec=3

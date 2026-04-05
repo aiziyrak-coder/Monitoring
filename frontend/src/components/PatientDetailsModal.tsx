@@ -92,11 +92,14 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
   const [localLimits, setLocalLimits] = useState<AlarmLimits | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [newNote, setNewNote] = useState('');
+  const [noteAuthor, setNoteAuthor] = useState('');
 
   const patient = patients[patientId];
 
   React.useEffect(() => {
     setLocalLimits(null);
+    setNewNote('');
+    setNoteAuthor('');
   }, [patientId]);
 
   React.useEffect(() => {
@@ -173,7 +176,7 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
     if (newNote.trim()) {
       addClinicalNote(patient.id, {
         text: newNote,
-        author: 'Dr. Admin' // Mock author
+        author: noteAuthor.trim(),
       });
       setNewNote('');
     }
@@ -554,12 +557,19 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
                 Klinik Qaydlar
               </h3>
               
-              <div className="flex space-x-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
+                <input
+                  type="text"
+                  value={noteAuthor}
+                  onChange={(e) => setNoteAuthor(e.target.value)}
+                  placeholder="Muallif (F.I.Sh.)"
+                  className="sm:w-44 bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm text-zinc-900 focus:outline-none focus:border-emerald-500"
+                />
                 <input 
                   type="text" 
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Yangi qayd qo'shish..."
+                  placeholder="Yangi qayd matni..."
                   className="flex-1 bg-white border border-zinc-200 rounded-lg px-4 py-2 text-zinc-900 focus:outline-none focus:border-emerald-500"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
                 />
@@ -577,7 +587,7 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
                   [...patient.notes].reverse().map(note => (
                     <div key={note.id} className="bg-zinc-50 border border-zinc-200 p-4 rounded-xl">
                       <div className="flex justify-between items-start mb-2">
-                        <span className="font-medium text-zinc-800">{note.author}</span>
+                        <span className="font-medium text-zinc-800">{note.author?.trim() ? note.author : '—'}</span>
                         <span className="text-xs text-zinc-500">{note.time ? format(new Date(note.time), 'dd.MM.yyyy HH:mm') : ''}</span>
                       </div>
                       <p className="text-zinc-600 text-sm">{note.text}</p>

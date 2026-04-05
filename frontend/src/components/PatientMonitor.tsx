@@ -1,4 +1,4 @@
-import { Heart, Clock, X, Battery, UserCircle, Droplets, RefreshCw, Pin } from 'lucide-react';
+import { Heart, Clock, X, Battery, UserCircle, Droplets, Pin } from 'lucide-react';
 import { PatientData, useStore } from '../store';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -21,7 +21,6 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
   const privacyMode = useStore(state => state.privacyMode);
   const setSchedule = useStore(state => state.setSchedule);
   const clearAlarm = useStore(state => state.clearAlarm);
-  const measureNibp = useStore(state => state.measureNibp);
   const setSelectedPatientId = useStore(state => state.setSelectedPatientId);
   const togglePinPatient = useStore(state => state.togglePinPatient);
   
@@ -244,22 +243,13 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
 
         {/* NIBP */}
         <div className={cn(
-          "bg-zinc-50 rounded flex flex-col justify-between border border-zinc-200 relative group/nibp overflow-hidden",
+          "bg-zinc-50 rounded flex flex-col justify-between border border-zinc-200 overflow-hidden",
           isSmall ? "p-0.5 col-span-2" : "p-1.5",
           isMedium && "col-span-2",
           isLarge && "col-span-1 row-span-1"
         )}>
           <div className="flex justify-between items-start shrink-0">
             <span className={cn("text-zinc-800 font-bold truncate pr-1", isSmall ? "text-[7px]" : "text-[9px]")}>AQB</span>
-            {!isSmall && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); measureNibp(patient.id); }}
-                className="opacity-0 group-hover/nibp:opacity-100 transition-opacity p-0.5 bg-zinc-200 rounded text-zinc-800 hover:text-zinc-950 shrink-0"
-                title="O'lchash"
-              >
-                <RefreshCw className="w-2.5 h-2.5" />
-              </button>
-            )}
           </div>
           <div className="flex flex-col items-end justify-center flex-1 min-h-0 overflow-hidden">
             <div className="flex items-baseline truncate max-w-full">

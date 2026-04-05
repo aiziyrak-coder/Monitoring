@@ -1,7 +1,6 @@
 """Socket.IO hodisalari — frontend socket.io-client bilan mos (AsyncServer / ASGI)."""
 from __future__ import annotations
 
-import random
 import time
 
 from asgiref.sync import sync_to_async
@@ -101,22 +100,6 @@ def register_socket_handlers(sio) -> None:
             base = p.alarm_limits or {**DEFAULT_ALARM_LIMITS}
             p.alarm_limits = merge_alarm_limits(base, limits)
             p.save(update_fields=["alarm_limits"])
-
-        await sync_to_async(_run)()
-
-    @sio.event
-    async def measure_nibp(sid, data):
-        if not isinstance(data, dict):
-            return
-
-        def _run():
-            p = Patient.objects.filter(pk=data.get("patientId")).first()
-            if not p:
-                return
-            p.nibp_sys = random.randint(100, 139)
-            p.nibp_dia = random.randint(60, 89)
-            p.nibp_time_ms = int(time.time() * 1000)
-            p.save(update_fields=["nibp_sys", "nibp_dia", "nibp_time_ms"])
 
         await sync_to_async(_run)()
 
