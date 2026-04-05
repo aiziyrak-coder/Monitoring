@@ -291,16 +291,10 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
               </div>
 
               {!hasLiveVitals && (
-                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-950 space-y-1.5">
-                  <p>
-                    <strong>Hozircha jonli qabul yo‘q.</strong> Monitor orqali ma’lumot kelishi bilan shu yerda
-                    avtomatik yangilanadi.
-                  </p>
-                  <p className="text-xs text-amber-900/85 leading-relaxed">
-                    Prezentatsiya / sinov: serverda <code className="bg-amber-100/80 px-1 rounded">DEMO_LIVE_VITALS=1</code>{" "}
-                    (va xizmatni qayta ishga tushirish). Haqiqiy ish: Mindrayda HL7 vitallar yuborish va tizim vaqti.
-                    Batafsil — <strong>Tizim sozlamalari → Integratsiya</strong>.
-                  </p>
+                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-950">
+                  <strong>Jonli vitallar kutilmoqda.</strong> Faqat shu karavatga biriktirilgan monitorning HL7 (OBX)
+                  yoki REST orqali yuborilgan haqiqiy ma’lumotlar shu kartaga yoziladi. Sozlamalar va ulanish —{" "}
+                  <strong>Tizim sozlamalari → Integratsiya</strong>.
                 </div>
               )}
 

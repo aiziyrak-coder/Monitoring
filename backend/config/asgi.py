@@ -1,7 +1,7 @@
 """
 Django ASGI + Socket.IO (WebSocket nginx orqali ishlaydi).
 
-Production: uvicorn (run_dev.py). Simulyatsiya threadi emit uchun loop saqlanadi.
+Production: uvicorn (run_dev.py). Socket.IO emit uchun asyncio loop saqlanadi.
 """
 import asyncio
 import os

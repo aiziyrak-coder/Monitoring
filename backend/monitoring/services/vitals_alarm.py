@@ -1,4 +1,4 @@
-"""Chegara va rejali tekshiruv — simulyatsiya va qurilma ingest uchun umumiy."""
+"""Chegara va rejali tekshiruv — qurilmadan kelgan vitallar (ingest) uchun."""
 from __future__ import annotations
 
 from monitoring.models import Patient

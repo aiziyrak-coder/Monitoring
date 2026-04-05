@@ -1,10 +1,7 @@
-import logging
 import os
 import sys
 
 from django.apps import AppConfig
-
-log = logging.getLogger(__name__)
 
 
 class MonitoringConfig(AppConfig):
@@ -20,21 +17,3 @@ class MonitoringConfig(AppConfig):
         from monitoring.hl7_mllp_listener import start_hl7_listener_if_enabled
 
         start_hl7_listener_if_enabled()
-
-        from django.conf import settings
-
-        if getattr(settings, "DEMO_LIVE_VITALS", False):
-            from monitoring.simulation_runner import ensure_simulation_started
-
-            ensure_simulation_started()
-            log.warning(
-                "DEMO_LIVE_VITALS=1 — vitallar simulyatsiyasi yoqildi; haqiqiy klinikada .env dan olib tashlang."
-            )
-            return
-        if not settings.DEBUG:
-            return
-        if os.environ.get("SKIP_SIMULATION") == "1":
-            return
-        from monitoring.simulation_runner import ensure_simulation_started
-
-        ensure_simulation_started()

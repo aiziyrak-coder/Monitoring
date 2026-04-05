@@ -31,22 +31,7 @@ if [[ -f db.sqlite3 ]] && command -v sqlite3 >/dev/null 2>&1; then
 fi
 
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings}"
-export SKIP_SIMULATION=1
 .venv/bin/python manage.py migrate --noinput
-
-# Demo bemolar avtomatik yaratilmaydi — faqat qabul + /api/device/.../vitals
-if [[ "${SEED_DEMO_ON_EMPTY:-0}" == "1" ]]; then
-  if ! .venv/bin/python -c "
-import os, django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-django.setup()
-from monitoring.models import Patient
-import sys
-sys.exit(0 if Patient.objects.exists() else 1)
-"; then
-    .venv/bin/python manage.py seed_demo
-  fi
-fi
 
 # Eski API nomi bilan konteyner/servis (klinika 8010 da)
 systemctl stop clinic-monitoring-api 2>/dev/null || true
@@ -60,9 +45,6 @@ install -m 644 "$APP_DIR/deploy/systemd/clinicmonitoring-backend.service" /etc/s
 if [[ -f /etc/clinicmonitoring.env ]]; then
   if grep -qE '^PORT=' /etc/clinicmonitoring.env; then
     sed -i 's/^PORT=.*/PORT=8010/' /etc/clinicmonitoring.env
-  fi
-  if ! grep -qE '^SKIP_SIMULATION=' /etc/clinicmonitoring.env; then
-    echo 'SKIP_SIMULATION=1' >> /etc/clinicmonitoring.env
   fi
 fi
 systemctl daemon-reload
