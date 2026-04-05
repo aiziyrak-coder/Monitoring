@@ -8,8 +8,12 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
+type SettingsPromptField =
+  | { name: string; label: string; placeholder?: string; kind?: 'text' }
+  | { name: string; label: string; kind: 'select'; options: { value: string; label: string }[] };
+
 // Custom Dialogs to replace prompt/confirm in iframe
-function CustomPrompt({ isOpen, title, fields, initialValues, onSubmit, onCancel }: { isOpen: boolean, title: string, fields: {name: string, label: string, placeholder?: string}[], initialValues?: Record<string, string>, onSubmit: (data: any) => void, onCancel: () => void }) {
+function CustomPrompt({ isOpen, title, fields, initialValues, onSubmit, onCancel }: { isOpen: boolean, title: string, fields: SettingsPromptField[], initialValues?: Record<string, string>, onSubmit: (data: any) => void, onCancel: () => void }) {
   const [values, setValues] = useState<Record<string, string>>({});
   
   useEffect(() => {
@@ -18,23 +22,39 @@ function CustomPrompt({ isOpen, title, fields, initialValues, onSubmit, onCancel
 
   if (!isOpen) return null;
 
+  const firstTextIdx = fields.findIndex(f => (f as { kind?: string }).kind !== 'select');
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-900/40 backdrop-blur-sm p-4">
       <div className="bg-white border border-zinc-200 rounded-xl w-full max-w-md p-6 shadow-2xl">
         <h3 className="text-lg font-bold text-zinc-900 mb-4">{title}</h3>
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(values); }}>
           <div className="space-y-4 mb-6">
-            {fields.map(f => (
+            {fields.map((f, idx) => (
               <div key={f.name}>
                 <label className="block text-sm text-zinc-600 mb-1">{f.label}</label>
-                <input 
-                  type="text" 
-                  value={values[f.name] || ''}
-                  onChange={e => setValues({...values, [f.name]: e.target.value})}
-                  placeholder={f.placeholder}
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-2 text-zinc-900 focus:border-emerald-500 outline-none"
-                  autoFocus={fields[0].name === f.name}
-                />
+                {f.kind === 'select' ? (
+                  <select
+                    value={values[f.name] ?? ''}
+                    onChange={e => setValues({ ...values, [f.name]: e.target.value })}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-2 text-zinc-900 focus:border-emerald-500 outline-none"
+                  >
+                    {f.options.map(opt => (
+                      <option key={opt.value === '' ? '__empty' : opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input 
+                    type="text" 
+                    value={values[f.name] || ''}
+                    onChange={e => setValues({...values, [f.name]: e.target.value})}
+                    placeholder={(f as { placeholder?: string }).placeholder}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-2 text-zinc-900 focus:border-emerald-500 outline-none"
+                    autoFocus={firstTextIdx === idx}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -46,6 +66,20 @@ function CustomPrompt({ isOpen, title, fields, initialValues, onSubmit, onCancel
       </div>
     </div>
   );
+}
+
+function buildBedSelectOptions(
+  beds: any[],
+  rooms: any[],
+  emptyLabel: string
+): { value: string; label: string }[] {
+  const opts = [{ value: '', label: emptyLabel }];
+  for (const bed of beds) {
+    const room = rooms.find((r: any) => r.id === bed.roomId);
+    const label = room ? `${room.name} — ${bed.name}` : bed.name;
+    opts.push({ value: bed.id, label: `${label} (${bed.id})` });
+  }
+  return opts;
 }
 
 function CustomConfirm({ isOpen, title, message, onConfirm, onCancel }: { isOpen: boolean, title: string, message: string, onConfirm: () => void, onCancel: () => void }) {
@@ -76,7 +110,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [showAdmitPatient, setShowAdmitPatient] = useState(false);
 
   // Dialog states
-  const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, fields: any[], initialValues?: Record<string, string>, onSubmit: (data: any) => void} | null>(null);
+  const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, fields: SettingsPromptField[], initialValues?: Record<string, string>, onSubmit: (data: any) => void} | null>(null);
   const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
 
   const fetchData = async (signal?: AbortSignal) => {
@@ -217,6 +251,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   };
 
   const addDevice = () => {
+    const bedOpts = buildBedSelectOptions(
+      data.beds || [],
+      data.rooms || [],
+      "— Joy tanlanmagan (keyin «Joyga biriktirish») —"
+    );
     setPromptConfig({
       isOpen: true,
       title: "Yangi qurilma qo'shish",
@@ -225,11 +264,27 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         { name: 'macAddress', label: "MAC Manzil", placeholder: "00:1A:2B:3C:4D:5E" },
         { name: 'model', label: "Model", placeholder: "Mindray uMEC10" },
         { name: 'hl7SendingApplication', label: "HL7 MSH-3 (ixtiyoriy, bir routerdan bir nechta monitor)", placeholder: "Masalan: uMEC10-1" },
+        {
+          name: 'bedId',
+          label: "Qaysi joyga biriktiramiz? (xona — joy)",
+          kind: 'select',
+          options: bedOpts,
+        },
       ],
       onSubmit: async (vals) => {
         if (!vals.ipAddress) return closeDialogs();
         try {
-          await fetch(apiUrl('/api/devices'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(vals) });
+          await fetch(apiUrl('/api/devices'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ipAddress: vals.ipAddress,
+              macAddress: vals.macAddress,
+              model: vals.model,
+              hl7SendingApplication: vals.hl7SendingApplication || '',
+              bedId: vals.bedId || '',
+            }),
+          });
           closeDialogs();
           fetchData();
         } catch (e) {
@@ -240,7 +295,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     });
   };
 
-  const editDevice = (device: { id: string; ipAddress?: string; macAddress?: string; model?: string; hl7SendingApplication?: string }) => {
+  const editDevice = (device: { id: string; ipAddress?: string; macAddress?: string; model?: string; hl7SendingApplication?: string; bedId?: string | null }) => {
+    const bedOpts = buildBedSelectOptions(
+      data.beds || [],
+      data.rooms || [],
+      "— Joyga biriktirilmagan —"
+    );
     setPromptConfig({
       isOpen: true,
       title: "Qurilmani tahrirlash",
@@ -249,12 +309,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         macAddress: device.macAddress ?? '',
         model: device.model ?? '',
         hl7SendingApplication: device.hl7SendingApplication ?? '',
+        bedId: device.bedId ?? '',
       },
       fields: [
         { name: 'ipAddress', label: "Lokal IP (LAN)", placeholder: "192.168.0.228" },
         { name: 'macAddress', label: "MAC Manzil", placeholder: "" },
         { name: 'model', label: "Model", placeholder: "" },
         { name: 'hl7SendingApplication', label: "HL7 MSH-3 (ixtiyoriy)", placeholder: "" },
+        { name: 'bedId', label: "Joy (xona — krevat)", kind: 'select', options: bedOpts },
       ],
       onSubmit: async (vals) => {
         try {
@@ -266,6 +328,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
               macAddress: vals.macAddress,
               model: vals.model,
               hl7SendingApplication: vals.hl7SendingApplication || '',
+              bedId: vals.bedId || '',
             }),
           });
           closeDialogs();
@@ -278,15 +341,31 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     });
   };
 
-  const assignBedToDevice = (deviceId: string) => {
+  const assignBedToDevice = (device: { id: string; bedId?: string | null }) => {
+    const bedOpts = buildBedSelectOptions(
+      data.beds || [],
+      data.rooms || [],
+      "— Biriktirilmagan (olib tashlash) —"
+    );
     setPromptConfig({
       isOpen: true,
       title: "Qurilmani joyga biriktirish",
-      fields: [{ name: 'bedId', label: "Joy ID si", placeholder: "Masalan: b1" }],
+      initialValues: { bedId: device.bedId ?? '' },
+      fields: [
+        {
+          name: 'bedId',
+          label: "Tuzilma bo'limida yaratilgan joyni tanlang",
+          kind: 'select',
+          options: bedOpts,
+        },
+      ],
       onSubmit: async (vals) => {
-        if (!vals.bedId) return closeDialogs();
         try {
-          await fetch(apiUrl(`/api/devices/${deviceId}`), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bedId: vals.bedId }) });
+          await fetch(apiUrl(`/api/devices/${device.id}`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bedId: vals.bedId || '' }),
+          });
           closeDialogs();
           fetchData();
         } catch (e) {
@@ -443,9 +522,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 {/* Devices Tab */}
                 {activeTab === 'devices' && (
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium text-zinc-900">Bemor Monitorlari</h3>
-                      <button onClick={addDevice} className="flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors text-sm">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-lg font-medium text-zinc-900">Bemor Monitorlari</h3>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          Joyni «Tuzilma»da yarating, keyin qurilma qo&apos;shganda yoki «Joyga biriktirish» bilan tanlang.
+                        </p>
+                      </div>
+                      <button onClick={addDevice} className="flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors text-sm shrink-0">
                         <Plus className="w-4 h-4 mr-1" /> Qurilma qo'shish
                       </button>
                     </div>
@@ -478,9 +562,27 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                               </td>
                               <td className="px-4 py-3">
                                 {device.bedId ? (
-                                  <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded border border-blue-200">{device.bedId}</span>
+                                  <div className="flex flex-col gap-1 items-start">
+                                    <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded border border-blue-200 text-xs font-mono">{device.bedId}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => assignBedToDevice(device)}
+                                      className="text-xs text-blue-600 hover:underline"
+                                    >
+                                      Boshqa joyga
+                                    </button>
+                                  </div>
                                 ) : (
-                                  <span className="text-zinc-500 italic">Biriktirilmagan</span>
+                                  <div className="flex flex-col gap-1 items-start max-w-[200px]">
+                                    <span className="text-zinc-500 italic text-xs">Biriktirilmagan</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => assignBedToDevice(device)}
+                                      className="text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1 hover:bg-emerald-100"
+                                    >
+                                      Joyga biriktirish
+                                    </button>
+                                  </div>
                                 )}
                               </td>
                               <td className="px-4 py-3">
@@ -489,10 +591,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                   <span className="text-zinc-700">{device.status === 'online' ? 'Onlayn' : 'Oflayn'}</span>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-right space-x-2">
+                              <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
                                 <button onClick={() => editDevice(device)} className="p-1.5 text-zinc-500 hover:text-emerald-600 bg-white border border-zinc-200 rounded-md" title="Tahrirlash"><Edit2 className="w-4 h-4" /></button>
-                                <button onClick={() => assignBedToDevice(device.id)} className="p-1.5 text-zinc-500 hover:text-blue-600 bg-white border border-zinc-200 rounded-md" title="Joyga biriktirish"><Link2 className="w-4 h-4" /></button>
-                                <button onClick={() => deleteDevice(device.id)} className="p-1.5 text-zinc-500 hover:text-red-600 bg-white border border-zinc-200 rounded-md"><Trash2 className="w-4 h-4" /></button>
+                                <button onClick={() => assignBedToDevice(device)} className="p-1.5 text-zinc-500 hover:text-blue-600 bg-white border border-zinc-200 rounded-md" title="Joyga biriktirish (tanlash)"><Link2 className="w-4 h-4" /></button>
+                                <button onClick={() => deleteDevice(device.id)} className="p-1.5 text-zinc-500 hover:text-red-600 bg-white border border-zinc-200 rounded-md" title="O'chirish"><Trash2 className="w-4 h-4" /></button>
                               </td>
                             </tr>
                           ))}
