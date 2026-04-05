@@ -664,7 +664,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                       <p className="text-sm text-zinc-600">
                         Standart port <code className="bg-zinc-100 px-1 rounded">6006</code> (MLLP). Bulut serverda <code className="bg-zinc-100 px-1 rounded">6006/tcp</code> ochiq bo‘lishi kerak (nginx emas — to‘g‘ridan-to‘g‘ri VPSga). Repoda <code className="bg-zinc-100 px-1 rounded">deploy/open-hl7-port.sh</code> yordamida ufw tekshiriladi.
                       </p>
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-zinc-800">
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-zinc-800">
                         <strong>NAT:</strong> monitor lokal (192.168…) qoladi; server HL7 ulanishda ko‘radigan manzil — klinikaning <strong>tashqi IP</strong>si. «Qurilma» formasida <strong>NAT tashqi IP</strong> maydonini shu manzil bilan to‘ldiring yoki har bir monitor uchun <strong>HL7 MSH-3</strong>ni Mindray xabari bilan bir xil qiling (bir tashqi IPdan bir nechta monitor).
                       </div>
                       <p className="text-sm text-zinc-600">
