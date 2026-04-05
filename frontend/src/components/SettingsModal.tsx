@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Server, Building2, MonitorSmartphone, Users, Plus, Trash2, Edit2, Info, AlertTriangle, Link2, UserPlus } from 'lucide-react';
 import { apiUrl, hl7ServerDisplay } from '../lib/api';
 import { useStore } from '../store';
+import { FRONTEND_BUILD_LABEL } from '../buildInfo';
 import { AdmitPatientModal } from './AdmitPatientModal';
 import { DeviceBedAssignModal, DeviceFormModal } from './DeviceFormModal';
 
@@ -335,6 +336,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             <div>
               <h2 className="text-xl font-bold text-zinc-900">Tizim Sozlamalari</h2>
               <p className="text-sm text-zinc-500">Infratuzilma, qurilmalar va integratsiya</p>
+              <p className="text-[11px] font-mono text-amber-800 mt-1.5 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block max-w-full">
+                Frontend: {FRONTEND_BUILD_LABEL} — bu qator yo‘q bo‘lsa yoki matn boshqacha bo‘lsa, boshqa sayt yoki eski kesh ochilgan.
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors">
@@ -446,6 +450,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <h3 className="text-lg font-medium text-zinc-900">Bemor Monitorlari</h3>
                         <p className="text-xs text-zinc-500 mt-1">
                           Joyni «Tuzilma»da yarating, keyin qurilma qo&apos;shganda yoki «Joyga biriktirish» bilan tanlang.
+                        </p>
+                        <p className="text-xs text-amber-950 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 leading-relaxed">
+                          <strong>«IP Manzil / MAC / Model» yolg&apos;ina chiqyaptimi?</strong> Bu <em>eski sahifa</em> — kodda bunday forma yo&apos;q.
+                          Brauzerda <kbd className="px-1 bg-white rounded border text-[10px]">Ctrl+Shift+R</kbd>, keyin{' '}
+                          <a
+                            href="/version.txt"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-700 underline font-mono"
+                          >
+                            /version.txt
+                          </a>
+                          {' '}oching: ichida <code className="bg-white px-1 rounded">dept-room-bed-v1</code> bo&apos;lishi kerak. Yo&apos;q bo&apos;lsa — deploy yoki noto&apos;g&apos;ri domen (
+                          <code className="bg-white px-1 rounded">clinicmonitoring.ziyrak.org</code>
+                          ).
                         </p>
                       </div>
                       <button onClick={addDevice} className="flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors text-sm shrink-0">

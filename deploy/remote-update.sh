@@ -86,9 +86,15 @@ cp -r dist/. "$WEBROOT/"
 chown -R www-data:www-data "$WEBROOT"
 
 if ! grep -q "ClinicMonitoring" "$WEBROOT/index.html" 2>/dev/null; then
-  echo "XATO: $WEBROOT/index.html Vite build emas (title ClinicMonitoring bo'lishi kerak)." >&2
-  exit 1
+    echo "XATO: $WEBROOT/index.html Vite build emas (title ClinicMonitoring bo'lishi kerak)." >&2
+    exit 1
 fi
+if ! grep -q 'name="app-id"' "$WEBROOT/index.html" 2>/dev/null; then
+    echo "XATO: index.html da meta app-id yo'q — build tekshiring." >&2
+    exit 1
+fi
+echo "Frontend docroot: $WEBROOT"
+grep 'name="app-id"' "$WEBROOT/index.html" || true
 
 # Nginx: boshqa dasturlarning shu domenlar uchun vhostlarini olib tashlash
 bash "$APP_DIR/deploy/purge-nginx-clinicmonitoring-conflicts.sh"

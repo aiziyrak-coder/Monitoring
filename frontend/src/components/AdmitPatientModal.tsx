@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { apiUrl } from '../lib/api';
 import { useStore } from '../store';
 import { X, UserPlus } from 'lucide-react';
+import { LocationCascadeSelects } from './LocationCascadeSelects';
 
 export function AdmitPatientModal({ onClose }: { onClose: () => void }) {
   const admitPatient = useStore(state => state.admitPatient);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [beds, setBeds] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [departmentId, setDepartmentId] = useState('');
+  const [roomId, setRoomId] = useState('');
+  const [bedId, setBedId] = useState('');
   
   useEffect(() => {
     const controller = new AbortController();
@@ -19,6 +24,7 @@ export function AdmitPatientModal({ onClose }: { onClose: () => void }) {
         return res.json();
       })
       .then(data => {
+        setDepartments(data.departments || []);
         setBeds(data.beds || []);
         setRooms(data.rooms || []);
         setIsLoading(false);
@@ -35,7 +41,6 @@ export function AdmitPatientModal({ onClose }: { onClose: () => void }) {
 
   const [formData, setFormData] = useState({
     name: '',
-    bedId: '',
     diagnosis: '',
     doctor: '',
     assignedNurse: ''
@@ -43,7 +48,8 @@ export function AdmitPatientModal({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    admitPatient(formData);
+    if (!bedId) return;
+    admitPatient({ ...formData, bedId });
     onClose();
   };
 
@@ -87,26 +93,24 @@ export function AdmitPatientModal({ onClose }: { onClose: () => void }) {
             />
           </div>
           
-          <div>
-            <label htmlFor="bedId" className="block text-sm font-medium text-zinc-600 mb-1">Xona / Joy (bed)</label>
-            <select 
-              id="bedId" 
-              name="bedId" 
-              required
-              value={formData.bedId}
-              onChange={handleChange}
-              disabled={isLoading || !!error || beds.length === 0}
-              className="w-full bg-white border border-zinc-300 rounded-lg px-4 py-2.5 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all disabled:opacity-50"
-            >
-              <option value="">{isLoading ? 'Yuklanmoqda...' : beds.length === 0 ? 'Avval tuzilmada joy yarating' : 'Joyni tanlang...'}</option>
-              {beds.map(bed => {
-                const room = rooms.find(r => r.id === bed.roomId);
-                const label = room ? `${room.name} - ${bed.name}` : bed.name;
-                return <option key={bed.id} value={bed.id}>{label}</option>;
-              })}
-            </select>
-            <p className="mt-1 text-xs text-zinc-500">
-              Monitor vitallari uchun: shu joyga qurilma ham biriktirilgan bo&apos;lishi kerak (Sozlamalar → Qurilmalar).
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+            <p className="text-sm font-medium text-emerald-900 mb-3">Joylashuv</p>
+            <LocationCascadeSelects
+              departments={departments}
+              rooms={rooms}
+              beds={beds}
+              departmentId={departmentId}
+              roomId={roomId}
+              bedId={bedId}
+              onDepartmentChange={setDepartmentId}
+              onRoomChange={setRoomId}
+              onBedChange={setBedId}
+              disabled={isLoading || !!error}
+              bedRequired
+              emphasize
+            />
+            <p className="mt-2 text-xs text-zinc-600">
+              Monitor vitallari: shu karavatga qurilma ham biriktirilgan bo&apos;lsin (Sozlamalar → Qurilmalar).
             </p>
           </div>
 

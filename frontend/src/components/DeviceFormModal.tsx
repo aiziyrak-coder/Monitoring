@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { X, MonitorSmartphone, MapPin } from 'lucide-react';
+import { FRONTEND_BUILD_LABEL } from '../buildInfo';
 import { apiUrl } from '../lib/api';
+import { cascadeFromBedId, LocationCascadeSelects } from './LocationCascadeSelects';
 
 type Infra = {
   departments: any[];
@@ -16,69 +18,6 @@ type DeviceRow = {
   hl7SendingApplication?: string;
   bedId?: string | null;
 };
-
-function BedLocationSelect({
-  value,
-  onChange,
-  departments,
-  rooms,
-  beds,
-  emptyLabel,
-  id,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  departments: any[];
-  rooms: any[];
-  beds: any[];
-  emptyLabel: string;
-  id: string;
-}) {
-  const optgroups =
-    departments.length > 0
-      ? departments.flatMap((dept: any) =>
-          rooms
-            .filter((r: any) => r.departmentId === dept.id)
-            .flatMap((room: any) => {
-              const roomBeds = beds.filter((b: any) => b.roomId === room.id);
-              if (roomBeds.length === 0) return [];
-              return [
-                <optgroup key={`${dept.id}-${room.id}`} label={`${dept.name} › ${room.name}`}>
-                  {roomBeds.map((bed: any) => (
-                    <option key={bed.id} value={bed.id}>
-                      {bed.name} — ID: {bed.id}
-                    </option>
-                  ))}
-                </optgroup>,
-              ];
-            })
-        )
-      : rooms.flatMap((room: any) => {
-          const roomBeds = beds.filter((b: any) => b.roomId === room.id);
-          if (roomBeds.length === 0) return [];
-          return [
-            <optgroup key={room.id} label={room.name}>
-              {roomBeds.map((bed: any) => (
-                <option key={bed.id} value={bed.id}>
-                  {bed.name} — ID: {bed.id}
-                </option>
-              ))}
-            </optgroup>,
-          ];
-        });
-
-  return (
-    <select
-      id={id}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-white border-2 border-emerald-200 rounded-xl px-4 py-3 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 text-base"
-    >
-      <option value="">{emptyLabel}</option>
-      {optgroups}
-    </select>
-  );
-}
 
 /** Yangi qurilma / tahrirlash — joy tanlash birinchi bo‘lib, katta ko‘rinishda. */
 export function DeviceFormModal({
@@ -99,6 +38,8 @@ export function DeviceFormModal({
   const { departments = [], rooms = [], beds = [] } = infra;
   const isEdit = Boolean(editingDevice);
 
+  const [departmentId, setDepartmentId] = useState('');
+  const [roomId, setRoomId] = useState('');
   const [bedId, setBedId] = useState('');
   const [ipAddress, setIpAddress] = useState('');
   const [macAddress, setMacAddress] = useState('');
@@ -109,19 +50,24 @@ export function DeviceFormModal({
   useEffect(() => {
     if (!open) return;
     if (editingDevice) {
-      setBedId(editingDevice.bedId ?? '');
       setIpAddress(editingDevice.ipAddress ?? '');
       setMacAddress(editingDevice.macAddress ?? '');
       setModel(editingDevice.model ?? '');
       setHl7SendingApplication(editingDevice.hl7SendingApplication ?? '');
+      const c = cascadeFromBedId(editingDevice.bedId, beds, rooms);
+      setDepartmentId(c.departmentId);
+      setRoomId(c.roomId);
+      setBedId(c.bedId);
     } else {
+      setDepartmentId('');
+      setRoomId('');
       setBedId('');
       setIpAddress('');
       setMacAddress('');
       setModel('');
       setHl7SendingApplication('');
     }
-  }, [open, editingDevice]);
+  }, [open, editingDevice, beds, rooms]);
 
   if (!open) return null;
 
@@ -169,13 +115,16 @@ export function DeviceFormModal({
               <MonitorSmartphone className="w-6 h-6 text-emerald-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-zinc-900">
-                {isEdit ? 'Qurilmani tahrirlash' : 'Yangi qurilma qo‘shish'}
+              <h2 className="text-lg font-bold text-zinc-900 leading-snug">
+                {isEdit
+                  ? 'Qurilmani tahrirlash (xona/joy + tarmoq)'
+                  : 'Yangi qurilma — avval XONA va JOY tanlang'}
               </h2>
               <p className="text-xs text-emerald-800 mt-1 leading-relaxed max-w-sm">
                 Avval <strong>qaysi xonaning qaysi joyiga</strong> tegishliligini tanlang. Bemor shu joyga{' '}
                 <strong>qabul qilinganda</strong> monitor (HL7) ma’lumotlari shu bemor kartasiga chiqadi.
               </p>
+              <p className="text-[10px] font-mono text-emerald-900/80 mt-2">Build: {FRONTEND_BUILD_LABEL}</p>
             </div>
           </div>
           <button
@@ -191,23 +140,26 @@ export function DeviceFormModal({
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
             <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/40 p-4">
-              <label htmlFor="device-bed" className="flex items-center gap-2 text-sm font-semibold text-emerald-900 mb-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-emerald-900 mb-3">
                 <MapPin className="w-4 h-4" />
-                Bo‘lim › xona › joy (krevat)
+                Bo‘lim, palata, karavat
               </label>
               {!hasBeds ? (
                 <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
                   Hozircha joy yo‘q. «Tuzilma» bo‘limida bo‘lim → xona → joy yarating, keyin bu oynani qayta oching.
                 </p>
               ) : (
-                <BedLocationSelect
-                  id="device-bed"
-                  value={bedId}
-                  onChange={setBedId}
+                <LocationCascadeSelects
                   departments={departments}
                   rooms={rooms}
                   beds={beds}
-                  emptyLabel="— Joy tanlanmagan (keyinroq biriktirasiz) —"
+                  departmentId={departmentId}
+                  roomId={roomId}
+                  bedId={bedId}
+                  onDepartmentChange={setDepartmentId}
+                  onRoomChange={setRoomId}
+                  onBedChange={setBedId}
+                  emphasize
                 />
               )}
             </div>
@@ -306,12 +258,19 @@ export function DeviceBedAssignModal({
   device: DeviceRow | null;
 }) {
   const { departments = [], rooms = [], beds = [] } = infra;
+  const [departmentId, setDepartmentId] = useState('');
+  const [roomId, setRoomId] = useState('');
   const [bedId, setBedId] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && device) setBedId(device.bedId ?? '');
-  }, [open, device]);
+    if (open && device) {
+      const c = cascadeFromBedId(device.bedId, beds, rooms);
+      setDepartmentId(c.departmentId);
+      setRoomId(c.roomId);
+      setBedId(c.bedId);
+    }
+  }, [open, device, beds, rooms]);
 
   if (!open || !device) return null;
 
@@ -352,18 +311,17 @@ export function DeviceBedAssignModal({
           {!hasBeds ? (
             <p className="text-sm text-amber-800">Avval «Tuzilma»da joy yarating.</p>
           ) : (
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 mb-2">Bo‘lim › xona › joy</label>
-              <BedLocationSelect
-                id="assign-bed"
-                value={bedId}
-                onChange={setBedId}
-                departments={departments}
-                rooms={rooms}
-                beds={beds}
-                emptyLabel="— Biriktirilmagan —"
-              />
-            </div>
+            <LocationCascadeSelects
+              departments={departments}
+              rooms={rooms}
+              beds={beds}
+              departmentId={departmentId}
+              roomId={roomId}
+              bedId={bedId}
+              onDepartmentChange={setDepartmentId}
+              onRoomChange={setRoomId}
+              onBedChange={setBedId}
+            />
           )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-zinc-600">
