@@ -31,7 +31,8 @@ def _peer_ip(addr: tuple) -> str:
     return ip
 
 
-def _find_device(msg: str, peer: str) -> Device | None:
+def _resolve_device(msg: str, peer: str) -> Device | None:
+    """MSH-3, keyin lokal IP, keyin NAT tashqi IP — log yozmaydi."""
     close_old_connections()
     app = extract_msh_sending_application(msg)
     if app:
@@ -51,35 +52,51 @@ def _find_device(msg: str, peer: str) -> Device | None:
     )
     if dev:
         return dev
-    if app:
-        log.warning(
-            "HL7: Device topilmadi peer=%s MSH-3=%r — HL7 ID yoki «NAT tashqi IP»ni tekshiring",
-            peer,
-            app,
-        )
-    else:
-        log.warning(
-            "HL7: Device topilmadi peer=%s (xabarda MSH-3 yo'q) — lokal IP / NAT tashqi IP / HL7 ID",
-            peer,
-        )
     return None
 
 
 def _process_one_message(msg: str, peer: str) -> None:
+    dev = _resolve_device(msg, peer)
     vitals = obx_to_vitals_dict(msg)
-    if not vitals:
-        log.debug("HL7: OBX dan vital topilmadi (peer=%s)", peer)
+
+    if dev:
+        if vitals:
+            payload = apply_device_vitals_dict(dev, vitals)
+            if payload:
+                schedule_coro(sio.emit("vitals_update", [payload]))
+        else:
+            # Aksar holatda Mindray OBX kodlari parse qilinmasa ham ulanish «onlayn» bo‘lsin
+            apply_device_vitals_dict(dev, {})
+            log.info(
+                "HL7: qurilma topildi, OBX vitallar parse qilinmadi (peer=%s) — holat yangilandi",
+                peer,
+            )
         return
-    dev = _find_device(msg, peer)
-    if not dev:
-        return
-    payload = apply_device_vitals_dict(dev, vitals)
-    if payload:
-        schedule_coro(sio.emit("vitals_update", [payload]))
+
+    app = extract_msh_sending_application(msg)
+    if vitals:
+        if app:
+            log.warning(
+                "HL7: Device topilmadi peer=%s MSH-3=%r — HL7 ID yoki «NAT tashqi IP»ni tekshiring",
+                peer,
+                app,
+            )
+        else:
+            log.warning(
+                "HL7: Device topilmadi peer=%s (MSH-3 yo'q) — lokal IP / NAT tashqi IP / HL7 ID",
+                peer,
+            )
+    else:
+        log.debug(
+            "HL7: qurilma topilmadi va OBX yo'q peer=%s MSH-3=%r",
+            peer,
+            app,
+        )
 
 
 def _handle_client(conn: socket.socket, addr: tuple) -> None:
     peer = _peer_ip(addr)
+    log.info("HL7: TCP ulanish %s (port %s)", peer, settings.HL7_LISTEN_PORT)
     buf = bytearray()
     try:
         conn.settimeout(300.0)
