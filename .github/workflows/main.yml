@@ -36,12 +36,15 @@ jobs:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     steps:
       - uses: actions/checkout@v4
+      # npm ci + build + migrate kichik VPSda 10 daqiqadan oshishi mumkin (default timeout = 10m).
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          command_timeout: 45m
           script_stop: true
           script: |
             set -euo pipefail

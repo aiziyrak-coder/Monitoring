@@ -72,9 +72,27 @@ Repository: [github.com/aiziyrak-coder/Monitoring](https://github.com/aiziyrak-c
 
 ## 8. Yangilanmayaptimi? (Actions + qo‘lda deploy)
 
-1. GitHub → **Actions** → **CI and deploy** — oxirgi run **yashil**mi? Qizil bo‘lsa, **Secrets** (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`) va logni tekshiring.
-2. **Qo‘lda deploy** (SSH kalit bilan serverga):
-   ```bash
-   ssh root@167.71.53.238 'cd /opt/clinicmonitoring && bash deploy/server-pull.sh && bash deploy/remote-update.sh'
-   ```
-3. **Actions dan qo‘lda ishga tushirish:** **Actions** → **CI and deploy** → **Run workflow** (branch: `main`). Bu ham `workflow_dispatch` orqali serverni yangilaydi (Secrets bo‘lishi shart).
+### Nima uchun Cursor/AI serverga SSH qila olmaydi?
+
+Agent sizning kompyuteringizdagi **SSH private kalitga kira olmaydi**. `ssh root@167.71.53.238` faqat sizda kalit (`~/.ssh/...` yoki ssh-agent) bo‘lsa ishlaydi. Shuning uchun deploy **GitHub Actions** (Secrets) yoki **quyidagi skript** orqali qilinadi.
+
+### GitHub Actions
+
+1. **Settings → Secrets and variables → Actions** da `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` to‘liq va to‘g‘ri ekanini tekshiring (`DEPLOY_SSH_KEY` — butun private key matni, boshida `-----BEGIN` bilan).
+2. **Actions** → **CI and deploy** — oxirgi run **yashil**mi? Qizil bo‘lsa logda xato: ko‘pincha Secrets yo‘q/noto‘g‘ri yoki serverda `npm ci` uzoq vaqt olgani uchun (workflowda `command_timeout: 45m`).
+3. **Run workflow** (branch: `main`) — push ishlamasa ham serverni yangilaydi.
+
+### Windows (PowerShell, bir xil buyruq)
+
+Avval kalit yo‘lini muhitga qo‘ying, keyin repoda:
+
+```powershell
+$env:CLINICMON_DEPLOY_SSH_KEY = "$env:USERPROFILE\.ssh\clinicmonitoring_deploy"
+.\deploy\run-remote-update.ps1
+```
+
+### Linux / macOS (qo‘lda)
+
+```bash
+ssh root@167.71.53.238 'cd /opt/clinicmonitoring && bash deploy/server-pull.sh && bash deploy/remote-update.sh'
+```
