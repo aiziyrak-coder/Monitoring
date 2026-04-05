@@ -69,10 +69,17 @@ fi
 npm ci
 VITE_API_ORIGIN="${VITE_API_ORIGIN:-https://clinicmonitoringapi.ziyrak.org}" npm run build
 
-install -d /var/www/clinicmonitoring
-rm -rf /var/www/clinicmonitoring/*
-cp -r dist/. /var/www/clinicmonitoring/
-chown -R www-data:www-data /var/www/clinicmonitoring
+# Eski HTML (Klinika monitoring + styles.css) bilan aralashmasligi uchun alohida docroot
+WEBROOT="${CLINIC_WEBROOT:-/var/www/clinicmonitoring-vite}"
+install -d "$WEBROOT"
+rm -rf "${WEBROOT:?}"/*
+cp -r dist/. "$WEBROOT/"
+chown -R www-data:www-data "$WEBROOT"
+
+if ! grep -q "ClinicMonitoring" "$WEBROOT/index.html" 2>/dev/null; then
+  echo "XATO: $WEBROOT/index.html Vite build emas (title ClinicMonitoring bo'lishi kerak)." >&2
+  exit 1
+fi
 
 # Nginx: boshqa dasturlarning shu domenlar uchun vhostlarini olib tashlash
 bash "$APP_DIR/deploy/purge-nginx-clinicmonitoring-conflicts.sh"
