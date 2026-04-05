@@ -251,27 +251,11 @@ export function Dashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto py-3 px-6 border-t border-zinc-200 bg-white/90 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between text-[11px] text-zinc-500 z-40 shrink-0">
-        <div className="flex items-center space-x-1">
-          <span>
-            &copy; 2026 ClinicMonitoring. Barcha huquqlar himoyalangan. Farg&apos;ona jamoat salomatligi instituti — ushbu platformaning egasi
-          </span>
-        </div>
-        <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-          <span className="flex items-center">
-            Ishlab chiqaruvchi: 
-            <a href="https://cdcgroup.uz" target="_blank" rel="noopener noreferrer" className="ml-1 font-semibold text-zinc-600 hover:text-emerald-600 transition-colors">
-              CDCGroup
-            </a>
-          </span>
-          <span className="w-1 h-1 rounded-full bg-zinc-300"></span>
-          <span className="flex items-center">
-            Qo'llab-quvvatlovchi: 
-            <a href="https://cdcgroup.uz" target="_blank" rel="noopener noreferrer" className="ml-1 font-semibold text-zinc-600 hover:text-purple-600 transition-colors">
-              CraDev Company
-            </a>
-          </span>
-        </div>
+      <footer className="mt-auto py-3 px-6 border-t border-zinc-200 bg-white/90 backdrop-blur-md flex flex-col items-center justify-center text-center gap-1 text-[11px] text-zinc-500 z-40 shrink-0">
+        <span>&copy; {new Date().getFullYear()} ClinicMonitoring. Barcha huquqlar himoyalangan.</span>
+        <span className="text-zinc-700 font-medium text-xs sm:text-[11px]">
+          Muallif: Farg&apos;ona Jamoat Salomatlik Tibbiyot Instituti
+        </span>
       </footer>
       </div>
 
