@@ -22,6 +22,14 @@ fi
 .venv/bin/pip install --upgrade pip -q
 .venv/bin/pip install -r requirements.txt -q
 
+# Eski loyiha qoldig‘i (masalan monitoring_department.clinic_id) — SQLite qayta
+if [[ -f db.sqlite3 ]] && command -v sqlite3 >/dev/null 2>&1; then
+  if sqlite3 db.sqlite3 "PRAGMA table_info(monitoring_department);" 2>/dev/null | grep -q '|clinic_id|'; then
+    echo "Eski SQLite sxemasi aniqlandi — db.sqlite3 olib tashlanmoqda"
+    rm -f db.sqlite3
+  fi
+fi
+
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings}"
 export SKIP_SIMULATION=1
 .venv/bin/python manage.py migrate --noinput
@@ -58,6 +66,11 @@ install -d /var/www/clinicmonitoring
 rm -rf /var/www/clinicmonitoring/*
 cp -r dist/. /var/www/clinicmonitoring/
 chown -R www-data:www-data /var/www/clinicmonitoring
+
+# Nginx: faol monitoring konfigi (dublikat sites-enabled olib tashlanadi)
+rm -f /etc/nginx/sites-enabled/clinicmonitoring-ziyrak.conf
+install -m 644 "$APP_DIR/deploy/nginx/monitoring-active.conf" /etc/nginx/sites-available/monitoring
+ln -sf /etc/nginx/sites-available/monitoring /etc/nginx/sites-enabled/monitoring
 
 if systemctl is-active --quiet nginx 2>/dev/null; then
   nginx -t

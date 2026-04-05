@@ -17,6 +17,7 @@ backend/*.sqlite3
 backend/db.sqlite3
 backend/staticfiles/
 backend/gunicorn.pid
+_*.txt
 
 # Frontend build
 frontend/dist/
