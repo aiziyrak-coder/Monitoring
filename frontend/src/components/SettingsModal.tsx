@@ -3,6 +3,7 @@ import { X, Server, Building2, MonitorSmartphone, Users, Plus, Trash2, Edit2, In
 import { apiUrl, hl7ServerDisplay } from '../lib/api';
 import { useStore } from '../store';
 import { AdmitPatientModal } from './AdmitPatientModal';
+import { DeviceBedAssignModal, DeviceFormModal } from './DeviceFormModal';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -73,20 +74,6 @@ function CustomPrompt({ isOpen, title, description, fields, initialValues, onSub
   );
 }
 
-function buildBedSelectOptions(
-  beds: any[],
-  rooms: any[],
-  emptyLabel: string
-): { value: string; label: string }[] {
-  const opts = [{ value: '', label: emptyLabel }];
-  for (const bed of beds) {
-    const room = rooms.find((r: any) => r.id === bed.roomId);
-    const label = room ? `${room.name} — ${bed.name}` : bed.name;
-    opts.push({ value: bed.id, label: `${label} (${bed.id})` });
-  }
-  return opts;
-}
-
 function CustomConfirm({ isOpen, title, message, onConfirm, onCancel }: { isOpen: boolean, title: string, message: string, onConfirm: () => void, onCancel: () => void }) {
   if (!isOpen) return null;
   return (
@@ -113,6 +100,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdmitPatient, setShowAdmitPatient] = useState(false);
+  const [deviceFormOpen, setDeviceFormOpen] = useState(false);
+  const [deviceFormEditing, setDeviceFormEditing] = useState<any | null>(null);
+  const [bedAssignOpen, setBedAssignOpen] = useState(false);
+  const [bedAssignDevice, setBedAssignDevice] = useState<any | null>(null);
 
   // Dialog states
   const [promptConfig, setPromptConfig] = useState<{isOpen: boolean, title: string, description?: string, fields: SettingsPromptField[], initialValues?: Record<string, string>, onSubmit: (data: any) => void} | null>(null);
@@ -142,6 +133,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   const closeDialogs = () => {
     setPromptConfig(null);
     setConfirmConfig(null);
+    setDeviceFormOpen(false);
+    setDeviceFormEditing(null);
+    setBedAssignOpen(false);
+    setBedAssignDevice(null);
   };
 
   const addDepartment = () => {
@@ -256,138 +251,18 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
   };
 
   const addDevice = () => {
-    const bedOpts = buildBedSelectOptions(
-      data.beds || [],
-      data.rooms || [],
-      "— Joy tanlanmagan (keyin «Joyga biriktirish») —"
-    );
-    setPromptConfig({
-      isOpen: true,
-      title: "Yangi qurilma qo'shish",
-      description:
-        (data.beds?.length ?? 0) === 0
-          ? "Avval «Tuzilma» bo‘limida bo‘lim → xona → joy yarating. Keyin bu yerda joyni tanlang."
-          : "«Joy»ni tanlang — monitor vitallari shu joydagi bemorga tushadi. Barcha qatorlarni ko‘rish uchun ichkarini pastga skrolling.",
-      fields: [
-        { name: 'ipAddress', label: "IP manzil (monitor LAN)", placeholder: "192.168.0.228" },
-        { name: 'macAddress', label: "MAC manzil", placeholder: "00:1A:2B:3C:4D:5E" },
-        { name: 'model', label: "Model", placeholder: "Mindray uMEC10" },
-        {
-          name: 'bedId',
-          label: "Joyga biriktirish (xona — krevat)",
-          kind: 'select',
-          options: bedOpts,
-        },
-        { name: 'hl7SendingApplication', label: "HL7 MSH-3 (ixtiyoriy)", placeholder: "Bir nechta monitor / NAT" },
-      ],
-      onSubmit: async (vals) => {
-        if (!vals.ipAddress) return closeDialogs();
-        try {
-          await fetch(apiUrl('/api/devices'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ipAddress: vals.ipAddress,
-              macAddress: vals.macAddress,
-              model: vals.model,
-              hl7SendingApplication: vals.hl7SendingApplication || '',
-              bedId: vals.bedId || '',
-            }),
-          });
-          closeDialogs();
-          fetchData();
-        } catch (e) {
-          console.error(e);
-          setError("Xatolik yuz berdi");
-        }
-      }
-    });
+    setDeviceFormEditing(null);
+    setDeviceFormOpen(true);
   };
 
   const editDevice = (device: { id: string; ipAddress?: string; macAddress?: string; model?: string; hl7SendingApplication?: string; bedId?: string | null }) => {
-    const bedOpts = buildBedSelectOptions(
-      data.beds || [],
-      data.rooms || [],
-      "— Joyga biriktirilmagan —"
-    );
-    setPromptConfig({
-      isOpen: true,
-      title: "Qurilmani tahrirlash",
-      description: "Joy tanlash ro‘yxati pastda. Ko‘rinmasa, skroll qiling.",
-      initialValues: {
-        ipAddress: device.ipAddress ?? '',
-        macAddress: device.macAddress ?? '',
-        model: device.model ?? '',
-        hl7SendingApplication: device.hl7SendingApplication ?? '',
-        bedId: device.bedId ?? '',
-      },
-      fields: [
-        { name: 'ipAddress', label: "IP manzil (LAN)", placeholder: "192.168.0.228" },
-        { name: 'macAddress', label: "MAC manzil", placeholder: "" },
-        { name: 'model', label: "Model", placeholder: "" },
-        { name: 'bedId', label: "Joyga biriktirish (xona — krevat)", kind: 'select', options: bedOpts },
-        { name: 'hl7SendingApplication', label: "HL7 MSH-3 (ixtiyoriy)", placeholder: "" },
-      ],
-      onSubmit: async (vals) => {
-        try {
-          await fetch(apiUrl(`/api/devices/${device.id}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ipAddress: vals.ipAddress,
-              macAddress: vals.macAddress,
-              model: vals.model,
-              hl7SendingApplication: vals.hl7SendingApplication || '',
-              bedId: vals.bedId || '',
-            }),
-          });
-          closeDialogs();
-          fetchData();
-        } catch (e) {
-          console.error(e);
-          setError("Xatolik yuz berdi");
-        }
-      },
-    });
+    setDeviceFormEditing(device);
+    setDeviceFormOpen(true);
   };
 
   const assignBedToDevice = (device: { id: string; bedId?: string | null }) => {
-    const bedOpts = buildBedSelectOptions(
-      data.beds || [],
-      data.rooms || [],
-      "— Biriktirilmagan (olib tashlash) —"
-    );
-    setPromptConfig({
-      isOpen: true,
-      title: "Qurilmani joyga biriktirish",
-      description:
-        (data.beds?.length ?? 0) === 0
-          ? "«Tuzilma»da hali joy yo‘q — avval yarating."
-          : "Quyidagi ro‘yxatdan joyni tanlang.",
-      initialValues: { bedId: device.bedId ?? '' },
-      fields: [
-        {
-          name: 'bedId',
-          label: "Joy (xona — krevat)",
-          kind: 'select',
-          options: bedOpts,
-        },
-      ],
-      onSubmit: async (vals) => {
-        try {
-          await fetch(apiUrl(`/api/devices/${device.id}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bedId: vals.bedId || '' }),
-          });
-          closeDialogs();
-          fetchData();
-        } catch (e) {
-          console.error(e);
-          setError("Xatolik yuz berdi");
-        }
-      }
-    });
+    setBedAssignDevice(device);
+    setBedAssignOpen(true);
   };
 
   const deleteDevice = (id: string) => {
@@ -416,6 +291,36 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           onClose={() => setShowAdmitPatient(false)}
         />
       )}
+      <DeviceFormModal
+        open={deviceFormOpen}
+        editingDevice={deviceFormEditing}
+        infra={{
+          departments: data.departments,
+          rooms: data.rooms,
+          beds: data.beds,
+        }}
+        onClose={() => {
+          setDeviceFormOpen(false);
+          setDeviceFormEditing(null);
+        }}
+        onSaved={() => void fetchData()}
+        onError={(msg) => setError(msg)}
+      />
+      <DeviceBedAssignModal
+        open={bedAssignOpen}
+        device={bedAssignDevice}
+        infra={{
+          departments: data.departments,
+          rooms: data.rooms,
+          beds: data.beds,
+        }}
+        onClose={() => {
+          setBedAssignOpen(false);
+          setBedAssignDevice(null);
+        }}
+        onSaved={() => void fetchData()}
+        onError={(msg) => setError(msg)}
+      />
       {promptConfig && <CustomPrompt {...promptConfig} onCancel={closeDialogs} />}
       {confirmConfig && <CustomConfirm {...confirmConfig} onCancel={closeDialogs} />}
 
