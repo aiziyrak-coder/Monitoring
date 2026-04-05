@@ -51,6 +51,28 @@ systemctl daemon-reload
 systemctl enable clinicmonitoring-backend
 systemctl restart clinicmonitoring-backend
 
+# curl shart emas — .venv dagi Python
+for _try in 1 2 3 4 5 6 7 8 9 10; do
+  if .venv/bin/python -c "
+import json, os, urllib.request
+p = os.environ.get('PORT', '8010')
+try:
+    with urllib.request.urlopen(f'http://127.0.0.1:{p}/api/health', timeout=2) as r:
+        d = json.loads(r.read().decode())
+    raise SystemExit(0 if d.get('status') == 'ok' else 1)
+except Exception:
+    raise SystemExit(1)
+" 2>/dev/null; then
+    echo "Backend health: OK (PORT=${PORT:-8010})"
+    break
+  fi
+  if [[ "${_try}" -eq 10 ]]; then
+    echo "XATO: backend /api/health javob bermadi (127.0.0.1:${PORT:-8010}). journalctl -u clinicmonitoring-backend -n 40" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
 # --- Frontend ---
 cd "$APP_DIR/frontend"
 if [[ ! -f package-lock.json ]]; then

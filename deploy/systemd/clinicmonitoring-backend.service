@@ -14,6 +14,10 @@ Environment=DJANGO_SETTINGS_MODULE=config.settings
 ExecStart=/opt/clinicmonitoring/backend/.venv/bin/python run_dev.py
 Restart=always
 RestartSec=3
+TimeoutStopSec=45
+LimitNOFILE=65535
+PrivateTmp=yes
+NoNewPrivileges=yes
 
 [Install]
 WantedBy=multi-user.target

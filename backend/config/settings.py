@@ -18,11 +18,18 @@ if not DEBUG and SECRET_KEY == _DEFAULT_DEV_SECRET:
         "DJANGO_SECRET_KEY is required when DEBUG=false (default development secret is not allowed)."
     )
 
-ALLOWED_HOSTS = [
-    h.strip()
-    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-    if h.strip()
-]
+if not DEBUG and len(SECRET_KEY) < 32:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY juda qisqa (kamida 32 belgi; tavsiya: 50+ tasodifiy)."
+    )
+
+ALLOWED_HOSTS = list(
+    dict.fromkeys(
+        h.strip()
+        for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+        if h.strip()
+    )
+)
 
 CSRF_TRUSTED_ORIGINS = [
     o.strip()
@@ -81,6 +88,10 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        # HL7 thread + ASGI bir vaqtda — lock kutish (default 5s yetarli emas bo‘lishi mumkin)
+        "OPTIONS": {
+            "timeout": 30,
+        },
     }
 }
 
@@ -152,7 +163,11 @@ LOGGING = {
 }
 
 # Shu vaqtdan oshsa qurilma API bo‘yicha «oflayn» (vitallar kelmayapti)
-DEVICE_ONLINE_SILENCE_SEC = int(os.environ.get("DEVICE_ONLINE_SILENCE_SEC", "120"))
+try:
+    _silence = int(os.environ.get("DEVICE_ONLINE_SILENCE_SEC", "120"))
+except ValueError as e:
+    raise ImproperlyConfigured("DEVICE_ONLINE_SILENCE_SEC butun son bo‘lishi kerak.") from e
+DEVICE_ONLINE_SILENCE_SEC = max(30, min(_silence, 86_400))
 
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
