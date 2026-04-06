@@ -27,7 +27,7 @@ from monitoring.serializers import (
     RoomSerializer,
 )
 from monitoring.ingest_stats import snapshot as ingest_snapshot
-from monitoring.services.patient_payload import all_patients_wire
+from monitoring.services.patient_payload import all_patients_wire, patient_to_wire_dict
 
 
 def _parse_nat_ip(raw) -> str | None:
@@ -110,6 +110,16 @@ class HealthView(APIView):
 class PatientsListView(APIView):
     def get(self, request):
         return Response(all_patients_wire())
+
+
+class PatientDetailView(APIView):
+    """Bitta bemor (socket o‘tkazib yuborsa — REST bilan sinxron)."""
+
+    def get(self, request, pk: str):
+        p = Patient.objects.filter(pk=pk).first()
+        if not p:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(patient_to_wire_dict(p))
 
 
 class InfrastructureView(APIView):

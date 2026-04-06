@@ -178,7 +178,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
 
       {!isSmall && !hasLiveVitals && (
         <p className="text-[9px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1 leading-tight">
-          Jonli qabul kutilmoqda
+          Serverdan vital kutilmoqda
         </p>
       )}
 

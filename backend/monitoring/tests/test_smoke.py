@@ -9,3 +9,9 @@ class HealthApiTests(TestCase):
         self.assertEqual(data.get("status"), "ok")
         self.assertIn("hl7", data)
         self.assertIn("ingest", data)
+
+
+class PatientDetailApiTests(TestCase):
+    def test_patient_detail_not_found(self) -> None:
+        r = Client().get("/api/patients/nonexistent999")
+        self.assertEqual(r.status_code, 404)

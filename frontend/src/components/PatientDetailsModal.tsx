@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, ErrorInfo, ReactNode } from 'react
 import { useStore, AlarmLimits } from '../store';
 import { apiUrl } from '../lib/api';
 import { openClinicSettings } from '../lib/openSettings';
+import { fetchPatientById, mergePatientsIntoStore } from '../lib/patientSync';
 import { X, Download, Activity, Heart, Battery, UserCircle, Calendar, Stethoscope, UserMinus, Settings2, LineChart as ChartIcon, Save, AlertTriangle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -114,6 +115,11 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
 
   const patient = patients[patientId];
 
+  const hasLiveVitals =
+    patient != null &&
+    patient.lastRealVitalsMs != null &&
+    patient.lastRealVitalsMs > 0;
+
   React.useEffect(() => {
     setLocalLimits(null);
   }, [patientId]);
@@ -127,14 +133,6 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
       }
     }
   }, [activeTab, patient, localLimits]);
-
-  if (!patient) return null;
-
-  const maskedName = privacyMode ? (patient.name || '').replace(/([A-Z]\.\s[A-Z]).*/, '$1***') : (patient.name || 'Noma\'lum');
-  const vitals = patient.vitals || { hr: 0, spo2: 0, nibpSys: 0, nibpDia: 0, rr: 0, temp: 0, nibpTime: 0 };
-  const alarm = patient.alarm || { level: 'none' };
-  const hasLiveVitals =
-    patient.lastRealVitalsMs != null && patient.lastRealVitalsMs > 0;
 
   useEffect(() => {
     if (hasLiveVitals) {
@@ -162,23 +160,47 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
     };
   }, [hasLiveVitals, patientId]);
 
+  /** Socket o‘tkazib yuborsa ham DB dagi holatni REST bilan yangilash. */
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      const snap = await fetchPatientById(patientId);
+      if (cancelled || !snap) return;
+      mergePatientsIntoStore([snap]);
+    };
+    sync();
+    const ms = hasLiveVitals ? 40_000 : 12_000;
+    const t = window.setInterval(sync, ms);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [patientId, hasLiveVitals]);
+
   const chartData = useMemo(() => {
     if (!patient) return [];
+    const v = patient.vitals || { hr: 0, spo2: 0, nibpSys: 0, nibpDia: 0, rr: 0, temp: 0, nibpTime: 0 };
     const fromHist = (patient.history || []).map(h => ({
       time: h.timestamp ? format(new Date(h.timestamp), 'HH:mm:ss') : '',
       hr: Math.round(h.hr),
       spo2: Math.round(h.spo2)
     }));
     if (fromHist.length > 0) return fromHist;
-    if (hasLiveVitals && (vitals.hr > 0 || vitals.spo2 > 0)) {
+    if (hasLiveVitals && (v.hr > 0 || v.spo2 > 0)) {
       return [{
         time: format(new Date(), 'HH:mm:ss'),
-        hr: Math.round(vitals.hr),
-        spo2: Math.round(vitals.spo2),
+        hr: Math.round(v.hr),
+        spo2: Math.round(v.spo2),
       }];
     }
     return [];
-  }, [patient, patient.history, hasLiveVitals, vitals.hr, vitals.spo2]);
+  }, [patient, patient?.history, hasLiveVitals]);
+
+  if (!patient) return null;
+
+  const maskedName = privacyMode ? (patient.name || '').replace(/([A-Z]\.\s[A-Z]).*/, '$1***') : (patient.name || 'Noma\'lum');
+  const vitals = patient.vitals || { hr: 0, spo2: 0, nibpSys: 0, nibpDia: 0, rr: 0, temp: 0, nibpTime: 0 };
+  const alarm = patient.alarm || { level: 'none' };
 
   const handleExport = () => {
     const csvContent = "data:text/csv;charset=utf-8," 

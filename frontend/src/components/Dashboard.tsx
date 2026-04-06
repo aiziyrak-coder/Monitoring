@@ -11,6 +11,7 @@ import {
   CLINIC_OPEN_SETTINGS_EVENT,
   type ClinicSettingsTab,
 } from '../lib/openSettings';
+import { fetchAllPatients, mergePatientsIntoStore } from '../lib/patientSync';
 
 const Clock = memo(() => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -57,6 +58,21 @@ export function Dashboard() {
       disconnect();
     };
   }, [connect, disconnect]);
+
+  /** Socket emit yo‘qolsa ham kartalar DB bilan sinxron bo‘lsin. */
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      const list = await fetchAllPatients();
+      if (!cancelled && list) mergePatientsIntoStore(list);
+    };
+    sync();
+    const t = window.setInterval(sync, 35_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, []);
 
   const patientList = useMemo(() => Object.values(patients), [patients]);
 

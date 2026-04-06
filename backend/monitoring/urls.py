@@ -5,6 +5,7 @@ from monitoring import views
 urlpatterns = [
     path("health", views.HealthView.as_view()),
     path("patients", views.PatientsListView.as_view()),
+    path("patients/<str:pk>", views.PatientDetailView.as_view()),
     path("infrastructure", views.InfrastructureView.as_view()),
     path("departments", views.DepartmentListCreateView.as_view()),
     path("departments/<str:pk>", views.DepartmentDetailView.as_view()),
