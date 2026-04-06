@@ -13,6 +13,7 @@ from django.db import close_old_connections
 
 from monitoring.asgi_support import schedule_vitals_emit
 from monitoring.models import Device
+from monitoring.ingest_stats import record_hl7_device_message
 from monitoring.services.device_ingest import apply_device_vitals_dict
 from monitoring.services.hl7_obx import extract_msh_sending_application, obx_to_vitals_dict
 
@@ -78,11 +79,23 @@ def _resolve_device(msg: str, peer: str) -> Device | None:
     return None
 
 
+def _obx_segment_count(msg: str) -> int:
+    return sum(
+        1
+        for seg in msg.replace("\n", "\r").split("\r")
+        if seg.strip().upper().startswith("OBX|")
+    )
+
+
 def _process_one_message(msg: str, peer: str) -> None:
     dev = _resolve_device(msg, peer)
+    obx_n = _obx_segment_count(msg)
     vitals = obx_to_vitals_dict(msg)
 
     if dev:
+        record_hl7_device_message(
+            obx_segment_count=obx_n, vitals_non_empty=bool(vitals)
+        )
         if vitals:
             payload = apply_device_vitals_dict(dev, vitals)
             if payload:
@@ -90,11 +103,6 @@ def _process_one_message(msg: str, peer: str) -> None:
         else:
             # Aksar holatda Mindray OBX kodlari parse qilinmasa ham ulanish «onlayn» bo‘lsin
             apply_device_vitals_dict(dev, {})
-            obx_n = sum(
-                1
-                for seg in msg.replace("\n", "\r").split("\r")
-                if seg.strip().startswith("OBX|")
-            )
             if obx_n:
                 sample = ""
                 for seg in msg.replace("\n", "\r").split("\r"):

@@ -23,6 +23,7 @@ from monitoring.serializers import (
     RoomCreateSerializer,
     RoomSerializer,
 )
+from monitoring.ingest_stats import snapshot as ingest_snapshot
 from monitoring.services.patient_payload import all_patients_wire
 
 
@@ -79,6 +80,7 @@ class HealthView(APIView):
                     "localTcpAccepts": _local_hl7_tcp_open() if hl7_on else None,
                 },
                 "deviceOfflineAfterSec": settings.DEVICE_ONLINE_SILENCE_SEC,
+                "ingest": ingest_snapshot(),
             }
         )
 

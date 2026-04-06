@@ -65,6 +65,11 @@ export interface PatientData {
   name: string;
   /** Bemor yotgan karavat (qurilma ham shu ID ga biriktirilishi kerak) */
   bedId?: string | null;
+  /** Shu karavatdagi qurilma (server ma'lumoti) */
+  linkedDeviceId?: string | null;
+  linkedDeviceLastSeenMs?: number | null;
+  /** Bemorga oxirgi muvaffaqiyatli vital yozilgan vaqt (ms) */
+  linkedDeviceLastVitalsAppliedMs?: number | null;
   room: string;
   diagnosis: string;
   doctor: string;
@@ -96,6 +101,10 @@ export interface VitalsUpdatePayload {
   deviceBattery: number;
   isPinned: boolean;
   lastRealVitalsMs?: number | null;
+  bedId?: string | null;
+  linkedDeviceId?: string | null;
+  linkedDeviceLastSeenMs?: number | null;
+  linkedDeviceLastVitalsAppliedMs?: number | null;
   medications: Medication[];
   labs: LabResult[];
   notes: ClinicalNote[];
@@ -231,7 +240,20 @@ export const useStore = create<AppState>((set, get) => ({
                   : p.lastRealVitalsMs,
               medications: update.medications ?? p.medications,
               labs: update.labs ?? p.labs,
-              notes: update.notes ?? p.notes
+              notes: update.notes ?? p.notes,
+              bedId: update.bedId !== undefined ? update.bedId : p.bedId,
+              linkedDeviceId:
+                update.linkedDeviceId !== undefined
+                  ? update.linkedDeviceId
+                  : p.linkedDeviceId,
+              linkedDeviceLastSeenMs:
+                update.linkedDeviceLastSeenMs !== undefined
+                  ? update.linkedDeviceLastSeenMs
+                  : p.linkedDeviceLastSeenMs,
+              linkedDeviceLastVitalsAppliedMs:
+                update.linkedDeviceLastVitalsAppliedMs !== undefined
+                  ? update.linkedDeviceLastVitalsAppliedMs
+                  : p.linkedDeviceLastVitalsAppliedMs,
             };
           }
         });

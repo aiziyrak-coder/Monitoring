@@ -9,6 +9,7 @@ from django.db import close_old_connections
 
 from monitoring.models import Device, Patient, VitalHistory
 from monitoring.services.news2 import DEFAULT_ALARM_LIMITS, vitals_from_patient_row
+from monitoring.ingest_stats import record_vitals_written_to_patient
 from monitoring.services.patient_payload import patient_to_wire_dict
 from monitoring.services.vitals_alarm import apply_limit_alarms, apply_scheduled_check_window
 
@@ -63,6 +64,14 @@ def build_vitals_socket_payload(wire: dict) -> dict[str, Any]:
         out["lastRealVitalsMs"] = wire["lastRealVitalsMs"]
     if "history" in wire:
         out["history"] = wire["history"]
+    for k in (
+        "linkedDeviceId",
+        "linkedDeviceLastSeenMs",
+        "linkedDeviceLastVitalsAppliedMs",
+        "bedId",
+    ):
+        if k in wire:
+            out[k] = wire[k]
     return out
 
 
@@ -121,6 +130,9 @@ def apply_device_vitals_dict(dev: Device, body: dict) -> dict[str, Any] | None:
 
     if wrote_vital:
         p.last_real_vitals_ms = now_ms
+        record_vitals_written_to_patient()
+        Device.objects.filter(pk=dev.pk).update(last_vitals_applied_ms=now_ms)
+        dev.last_vitals_applied_ms = now_ms
 
     limits = p.alarm_limits or {**DEFAULT_ALARM_LIMITS}
     if not p.alarm_limits:
@@ -136,8 +148,10 @@ def apply_device_vitals_dict(dev: Device, body: dict) -> dict[str, Any] | None:
         hist_rows = list(
             VitalHistory.objects.filter(patient=p).order_by("timestamp_ms")
         )
-        wire = patient_to_wire_dict(p, history_override=hist_rows, omit_history=False)
+        wire = patient_to_wire_dict(
+            p, history_override=hist_rows, omit_history=False, linked_device=dev
+        )
     else:
-        wire = patient_to_wire_dict(p, omit_history=True)
+        wire = patient_to_wire_dict(p, omit_history=True, linked_device=dev)
 
     return build_vitals_socket_payload(wire)

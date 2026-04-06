@@ -39,6 +39,9 @@ class DeviceSerializer(serializers.ModelSerializer):
     )
     bedId = serializers.SerializerMethodField()
     lastSeen = serializers.SerializerMethodField()
+    lastVitalsAppliedMs = serializers.IntegerField(
+        source="last_vitals_applied_ms", read_only=True, allow_null=True
+    )
     status = serializers.SerializerMethodField()
 
     class Meta:
@@ -53,6 +56,7 @@ class DeviceSerializer(serializers.ModelSerializer):
             "bedId",
             "status",
             "lastSeen",
+            "lastVitalsAppliedMs",
         )
 
     def get_bedId(self, obj: Device):

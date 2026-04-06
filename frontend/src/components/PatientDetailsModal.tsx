@@ -2,7 +2,17 @@ import React, { useState, useMemo, ErrorInfo, ReactNode } from 'react';
 import { useStore, AlarmLimits } from '../store';
 import { X, Download, Activity, Heart, Battery, UserCircle, Calendar, Stethoscope, UserMinus, Settings2, LineChart as ChartIcon, Save, AlertTriangle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
+import { uz } from 'date-fns/locale';
+
+function msAgoLabel(ms: number | null | undefined): string {
+  if (ms == null || ms <= 0) return '—';
+  try {
+    return formatDistanceToNow(ms, { addSuffix: true, locale: uz });
+  } catch {
+    return '—';
+  }
+}
 
 function CustomConfirm({ isOpen, title, message, onConfirm, onCancel }: { isOpen: boolean, title: string, message: string, onConfirm: () => void, onCancel: () => void }) {
   if (!isOpen) return null;
@@ -304,9 +314,45 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
                       <strong>Eslatma:</strong> bu bemorda karavat tanlanmagan yoki ma’lumot eskirgan — bemorni qayta qabul qiling va karavatni tanlang.
                     </p>
                   )}
+                  <div className="text-xs text-sky-950 bg-sky-50 border border-sky-200 rounded-lg px-2 py-2 space-y-1.5 leading-relaxed">
+                    <p className="font-semibold text-sky-900">Server bo‘yicha diagnostika</p>
+                    <p className="text-sky-900/95">
+                      <strong>Qurilma o‘zi ekranda raqam ko‘rsatsa</strong> — bu faqat monitor ichidagi o‘lchov; platforma faqat serverga kelgan HL7/REST orqali ko‘radi.
+                    </p>
+                    {patient.linkedDeviceId ? (
+                      <ul className="list-disc pl-4 space-y-0.5 text-sky-900/90">
+                        <li>
+                          Shu karavatdagi qurilma ID:{' '}
+                          <span className="font-mono">{patient.linkedDeviceId}</span>
+                        </li>
+                        <li>
+                          Server qurilmadan oxirgi signal:{' '}
+                          <strong>{msAgoLabel(patient.linkedDeviceLastSeenMs)}</strong>
+                        </li>
+                        <li>
+                          Bemorga vital yozilgani (oxirgi):{' '}
+                          <strong>{msAgoLabel(patient.linkedDeviceLastVitalsAppliedMs)}</strong>
+                        </li>
+                      </ul>
+                    ) : (
+                      <p className="text-amber-900">
+                        Bu karavatga <strong>hech qanday qurilma biriktirilmagan</strong> (yoki jadval yangilanmagan). Sozlamalar → Qurilmalar.
+                      </p>
+                    )}
+                    {patient.linkedDeviceId &&
+                    patient.linkedDeviceLastSeenMs != null &&
+                    patient.linkedDeviceLastSeenMs > 0 &&
+                    (patient.linkedDeviceLastVitalsAppliedMs == null ||
+                      patient.linkedDeviceLastVitalsAppliedMs <= 0) ? (
+                      <p className="text-sky-900 font-medium border-t border-sky-200 pt-1.5 mt-1">
+                        Ulanish bor, lekin bemorga vital yozilmagan → HL7 OBX parse yoki karavat/bemor mosligi.{' '}
+                        <code className="text-[10px] bg-white/80 px-1 rounded">GET /api/health</code> dagi{' '}
+                        <code className="text-[10px] bg-white/80 px-1 rounded">ingest</code> sonlarini tekshiring.
+                      </p>
+                    ) : null}
+                  </div>
                   <p className="text-xs text-amber-900/90 leading-relaxed">
-                    Serverga HL7 porti <strong>6006</strong> ochiqmi va monitorda server manzili to‘g‘rimi — <strong>Integratsiya</strong> bo‘limida tekshiring.
-                    Agar ulanish «onlayn» bo‘lsa-yu grafik bo‘sh bo‘lsa, logda «OBX bor, lekin vitallar ajratilmadi» xabari bo‘lishi mumkin (OBX formati).
+                    HL7 port <strong>6006</strong>, manzil va firewall — <strong>Integratsiya</strong>. Log: «OBX bor, lekin vitallar ajratilmadi» + birinchi OBX qatori.
                   </p>
                 </div>
               )}

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from django.db.models import Prefetch
 
-from monitoring.models import Patient, VitalHistory
+from monitoring.models import Device, Patient, VitalHistory
 
 
 def _history_queryset():
@@ -28,6 +28,7 @@ def patient_to_wire_dict(
     *,
     history_override: list | None = None,
     omit_history: bool = False,
+    linked_device: Device | None = None,
 ) -> dict:
     vitals = {
         "hr": p.hr,
@@ -118,10 +119,19 @@ def patient_to_wire_dict(
             "patientId": p.id,
         }
 
+    ld = linked_device
+    if ld is None and p.bed_id:
+        ld = (
+            Device.objects.filter(bed_id=p.bed_id).order_by("id").first()
+        )
+
     out = {
         "id": p.id,
         "name": p.name,
         "bedId": str(p.bed_id) if p.bed_id else None,
+        "linkedDeviceId": ld.id if ld else None,
+        "linkedDeviceLastSeenMs": ld.last_seen_ms if ld else None,
+        "linkedDeviceLastVitalsAppliedMs": ld.last_vitals_applied_ms if ld else None,
         "room": p.room,
         "diagnosis": p.diagnosis,
         "doctor": p.doctor,
@@ -144,4 +154,12 @@ def patient_to_wire_dict(
 
 
 def all_patients_wire():
-    return [patient_to_wire_dict(p) for p in patients_queryset_for_wire()]
+    patients = list(patients_queryset_for_wire())
+    bed_ids = {p.bed_id for p in patients if p.bed_id}
+    by_bed: dict = {}
+    if bed_ids:
+        for d in Device.objects.filter(bed_id__in=bed_ids).order_by("id"):
+            by_bed.setdefault(d.bed_id, d)
+    return [
+        patient_to_wire_dict(p, linked_device=by_bed.get(p.bed_id)) for p in patients
+    ]

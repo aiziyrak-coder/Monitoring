@@ -64,6 +64,11 @@ class Device(models.Model):
     )
     status = models.CharField(max_length=16, choices=STATUS, default="offline")
     last_seen_ms = models.BigIntegerField(null=True, blank=True)
+    last_vitals_applied_ms = models.BigIntegerField(
+        null=True,
+        blank=True,
+        help_text="HL7/REST dan bemorga oxirgi muvaffaqiyatli vital yozilgan vaqt (ms).",
+    )
     # HL7 MSH-3 (Sending Application) — bir nechta monitor bitta NAT orqida bo'lsa
     hl7_sending_application = models.CharField(max_length=128, blank=True, default="")
     # Klinika routerining tashqi IPsi — HL7 ulanishda server ko‘radigan peer shu bo‘lsa, lokal ip_address bilan moslashtirish

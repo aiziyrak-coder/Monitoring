@@ -481,6 +481,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             <th className="px-4 py-3">HL7 ID</th>
                             <th className="px-4 py-3">Biriktirilgan joy</th>
                             <th className="px-4 py-3">Holati</th>
+                            <th className="px-4 py-3">Bemorga vital</th>
                             <th className="px-4 py-3 text-right">Amallar</th>
                           </tr>
                         </thead>
@@ -554,6 +555,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                           : 'hech qachon'}
                                     </div>
                                   </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-zinc-600 max-w-[140px]">
+                                <div className="font-mono text-[10px] text-zinc-500">
+                                  {device.lastVitalsAppliedMs != null && device.lastVitalsAppliedMs > 0
+                                    ? formatLastSeenRelative(device.lastVitalsAppliedMs)
+                                    : '—'}
+                                </div>
+                                <div className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
+                                  HL7/REST dan bemorga yozilgan
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
@@ -675,8 +686,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <strong>NAT:</strong> monitor lokal (192.168…) qoladi; server HL7 ulanishda ko‘radigan manzil — klinikaning <strong>tashqi IP</strong>si. «Qurilma» formasida <strong>NAT tashqi IP</strong> maydonini shu manzil bilan to‘ldiring yoki har bir monitor uchun <strong>HL7 MSH-3</strong>ni Mindray xabari bilan bir xil qiling (bir tashqi IPdan bir nechta monitor).
                       </div>
                       <p className="text-sm text-zinc-600">
-                        <code className="bg-zinc-100 px-1 rounded">GET /api/health</code> javobida <code className="bg-zinc-100 px-1 rounded">hl7.listenPort</code> va <code className="bg-zinc-100 px-1 rounded">deviceOfflineAfterSec</code> ko‘rinadi (diagnostika).
+                        <code className="bg-zinc-100 px-1 rounded">GET /api/health</code> javobida <code className="bg-zinc-100 px-1 rounded">hl7.listenPort</code>, <code className="bg-zinc-100 px-1 rounded">deviceOfflineAfterSec</code> va <code className="bg-zinc-100 px-1 rounded">ingest</code> (HL7 xabarlari / parse / bemorga yozilgan vital sonlari — backend qayta ishga tushgandan beri) ko‘rinadi.
                       </p>
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-950 space-y-1">
+                        <p className="font-semibold text-amber-900">Qurilma ekrani vs platforma</p>
+                        <p>
+                          Monitor o‘zida YUCh/SpO2 ko‘rinsa ham, platforma faqat <strong>serverga kelgan</strong> HL7 (OBX) yoki REST ni aks ettiradi. «Qurilmalar» jadvalida <strong>Bemorga vital</strong> ustuni oxirgi muvaffaqiyatli yozuvni ko‘rsatadi; bemor kartasida esa server diagnostikasi bloki bor.
+                        </p>
+                      </div>
 
                       <h4 className="font-bold text-zinc-900 mt-6">REST API (alternativa)</h4>
                       <p className="text-sm text-zinc-600">LANdagi gateway HTTPS orqali yuborsa — IP emas, qurilma ID bilan:</p>
