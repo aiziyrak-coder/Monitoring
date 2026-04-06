@@ -1,5 +1,7 @@
-import React, { useState, useMemo, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useMemo, useEffect, ErrorInfo, ReactNode } from 'react';
 import { useStore, AlarmLimits } from '../store';
+import { apiUrl } from '../lib/api';
+import { openClinicSettings } from '../lib/openSettings';
 import { X, Download, Activity, Heart, Battery, UserCircle, Calendar, Stethoscope, UserMinus, Settings2, LineChart as ChartIcon, Save, AlertTriangle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -12,6 +14,14 @@ function msAgoLabel(ms: number | null | undefined): string {
   } catch {
     return '—';
   }
+}
+
+/** /api/health → ingest */
+interface HealthIngest {
+  hl7MessagesWithResolvedDevice?: number;
+  hl7ObxPresentButVitalsEmpty?: number;
+  hl7ParsedToVitalsNonEmpty?: number;
+  vitalUpdatesWrittenToPatientDb?: number;
 }
 
 function CustomConfirm({ isOpen, title, message, onConfirm, onCancel }: { isOpen: boolean, title: string, message: string, onConfirm: () => void, onCancel: () => void }) {
@@ -100,6 +110,7 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
   const [activeTab, setActiveTab] = useState<'overview' | 'limits'>('overview');
   const [localLimits, setLocalLimits] = useState<AlarmLimits | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [healthIngest, setHealthIngest] = useState<HealthIngest | null>(null);
 
   const patient = patients[patientId];
 
@@ -124,6 +135,32 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
   const alarm = patient.alarm || { level: 'none' };
   const hasLiveVitals =
     patient.lastRealVitalsMs != null && patient.lastRealVitalsMs > 0;
+
+  useEffect(() => {
+    if (hasLiveVitals) {
+      setHealthIngest(null);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await fetch(apiUrl('/api/health'));
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!cancelled && j?.ingest && typeof j.ingest === 'object') {
+          setHealthIngest(j.ingest as HealthIngest);
+        }
+      } catch {
+        /* tarmoq xatosi — jim */
+      }
+    };
+    load();
+    const t = window.setInterval(load, 25_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [hasLiveVitals, patientId]);
 
   const chartData = useMemo(() => {
     if (!patient) return [];
@@ -297,63 +334,100 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
               </div>
 
               {!hasLiveVitals && (
-                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-950 space-y-2">
-                  <p>
-                    <strong>Jonli vitallar kutilmoqda.</strong> Monitor HL7 (OBX) yoki REST orqali yuborishi kerak.
+                <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/90 text-sm text-amber-950 space-y-3">
+                  <p className="font-medium leading-snug">
+                    Jonli vitallar yo‘q. Platforma faqat serverga kelgan ma’lumotni ko‘radi (HL7 port{' '}
+                    <strong>6006</strong> yoki REST).
                   </p>
+                  <p className="text-xs text-amber-900/90 leading-relaxed">
+                    Monitor o‘zida raqam ko‘rinsa ham, u serverga yuborilmasa — bu yerda bo‘sh qoladi.
+                  </p>
+
                   {patient.bedId ? (
-                    <p className="text-xs text-amber-900/95 leading-relaxed font-mono bg-amber-100/80 border border-amber-200/80 rounded-lg px-2 py-1.5">
-                      <span className="font-sans font-semibold text-amber-950">Bu bemorni karavati ID: </span>
-                      {patient.bedId}
-                      <span className="font-sans text-amber-900/90 block mt-1">
-                        Sozlamalar → Qurilmalar jadvalidagi «Biriktirilgan joy» ID si bilan bir xil bo‘lishi kerak. Farq bo‘lsa, vitallar kartaga yozilmaydi.
-                      </span>
-                    </p>
+                    <div className="rounded-lg border border-amber-300/80 bg-white/70 px-3 py-2 text-xs space-y-2">
+                      <p>
+                        <span className="text-amber-800 font-medium">Karavat ID</span>{' '}
+                        <code className="font-mono bg-amber-100/90 px-1 rounded">{patient.bedId}</code>
+                        <span className="text-amber-900/85 block mt-1">
+                          Qurilmadagi «Biriktirilgan joy» ham shu ID bo‘lishi kerak.
+                        </span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => openClinicSettings('devices')}
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-500 shadow-sm"
+                      >
+                        Qurilmalarni ochish
+                      </button>
+                    </div>
                   ) : (
-                    <p className="text-xs text-red-800 leading-relaxed">
-                      <strong>Eslatma:</strong> bu bemorda karavat tanlanmagan yoki ma’lumot eskirgan — bemorni qayta qabul qiling va karavatni tanlang.
+                    <p className="text-xs text-red-800">
+                      Karavat tanlanmagan — bemorni qayta qabul qiling.
                     </p>
                   )}
-                  <div className="text-xs text-sky-950 bg-sky-50 border border-sky-200 rounded-lg px-2 py-2 space-y-1.5 leading-relaxed">
-                    <p className="font-semibold text-sky-900">Server bo‘yicha diagnostika</p>
-                    <p className="text-sky-900/95">
-                      <strong>Qurilma o‘zi ekranda raqam ko‘rsatsa</strong> — bu faqat monitor ichidagi o‘lchov; platforma faqat serverga kelgan HL7/REST orqali ko‘radi.
-                    </p>
+
+                  <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950 space-y-2">
+                    <p className="font-semibold text-sky-900">Holat</p>
                     {patient.linkedDeviceId ? (
-                      <ul className="list-disc pl-4 space-y-0.5 text-sky-900/90">
-                        <li>
-                          Shu karavatdagi qurilma ID:{' '}
-                          <span className="font-mono">{patient.linkedDeviceId}</span>
-                        </li>
-                        <li>
-                          Server qurilmadan oxirgi signal:{' '}
-                          <strong>{msAgoLabel(patient.linkedDeviceLastSeenMs)}</strong>
-                        </li>
-                        <li>
-                          Bemorga vital yozilgani (oxirgi):{' '}
-                          <strong>{msAgoLabel(patient.linkedDeviceLastVitalsAppliedMs)}</strong>
-                        </li>
-                      </ul>
+                      <>
+                        <p className="text-sky-900/90">
+                          Qurilma: <code className="font-mono text-[11px] bg-white/80 px-1 rounded">{patient.linkedDeviceId}</code>
+                        </p>
+                        <p className="text-sky-900/90">
+                          Server signal: <strong>{msAgoLabel(patient.linkedDeviceLastSeenMs)}</strong>
+                          {' · '}
+                          Bemorga yozuv: <strong>{msAgoLabel(patient.linkedDeviceLastVitalsAppliedMs)}</strong>
+                        </p>
+                        {patient.linkedDeviceLastSeenMs != null &&
+                        patient.linkedDeviceLastSeenMs > 0 &&
+                        (patient.linkedDeviceLastVitalsAppliedMs == null ||
+                          patient.linkedDeviceLastVitalsAppliedMs <= 0) ? (
+                          <p className="text-sky-900 font-medium border-t border-sky-200/80 pt-2">
+                            Signal bor, lekin kartaga yozilmagan — odatda HL7 OBX formati yoki karavat mosligi.
+                          </p>
+                        ) : null}
+                      </>
                     ) : (
                       <p className="text-amber-900">
-                        Bu karavatga <strong>hech qanday qurilma biriktirilmagan</strong> (yoki jadval yangilanmagan). Sozlamalar → Qurilmalar.
+                        Shu karavatga qurilma biriktirilmagan.
                       </p>
                     )}
-                    {patient.linkedDeviceId &&
-                    patient.linkedDeviceLastSeenMs != null &&
-                    patient.linkedDeviceLastSeenMs > 0 &&
-                    (patient.linkedDeviceLastVitalsAppliedMs == null ||
-                      patient.linkedDeviceLastVitalsAppliedMs <= 0) ? (
-                      <p className="text-sky-900 font-medium border-t border-sky-200 pt-1.5 mt-1">
-                        Ulanish bor, lekin bemorga vital yozilmagan → HL7 OBX parse yoki karavat/bemor mosligi.{' '}
-                        <code className="text-[10px] bg-white/80 px-1 rounded">GET /api/health</code> dagi{' '}
-                        <code className="text-[10px] bg-white/80 px-1 rounded">ingest</code> sonlarini tekshiring.
-                      </p>
-                    ) : null}
+
+                    {healthIngest ? (
+                      <div className="border-t border-sky-200/80 pt-2 space-y-1 text-[11px] text-sky-900/95">
+                        <p className="font-medium text-sky-900">Server hisobi (backend qayta ishga tushgandan)</p>
+                        <p>
+                          HL7 xabar (qurilma topilgan):{' '}
+                          <strong>{healthIngest.hl7MessagesWithResolvedDevice ?? 0}</strong>
+                        </p>
+                        <p>
+                          OBX bor, vitallar ajratilmagan:{' '}
+                          <strong>{healthIngest.hl7ObxPresentButVitalsEmpty ?? 0}</strong>
+                        </p>
+                        <p>
+                          Vitallar ajratilgan: <strong>{healthIngest.hl7ParsedToVitalsNonEmpty ?? 0}</strong>
+                        </p>
+                        <p>
+                          Bemorga yozilgan: <strong>{healthIngest.vitalUpdatesWrittenToPatientDb ?? 0}</strong>
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sky-700/80 text-[11px]">Hisob yuklanmoqda…</p>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => openClinicSettings('integration')}
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-sky-700 text-white text-xs font-medium hover:bg-sky-600"
+                      >
+                        Integratsiya (HL7 / REST)
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-sky-800/90 leading-relaxed">
+                      Server logida: «OBX bor, lekin vitallar ajratilmadi» — birinchi OBX qatori ko‘rinadi.
+                    </p>
                   </div>
-                  <p className="text-xs text-amber-900/90 leading-relaxed">
-                    HL7 port <strong>6006</strong>, manzil va firewall — <strong>Integratsiya</strong>. Log: «OBX bor, lekin vitallar ajratilmadi» + birinchi OBX qatori.
-                  </p>
                 </div>
               )}
 

@@ -7,6 +7,10 @@ import { PatientDetailsModal } from './PatientDetailsModal';
 import { AdmitPatientModal } from './AdmitPatientModal';
 import { useAudioAlarm } from '../hooks/useAudioAlarm';
 import { SettingsModal } from './SettingsModal';
+import {
+  CLINIC_OPEN_SETTINGS_EVENT,
+  type ClinicSettingsTab,
+} from '../lib/openSettings';
 
 const Clock = memo(() => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -33,6 +37,18 @@ export function Dashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] =
+    useState<ClinicSettingsTab>('structure');
+
+  useEffect(() => {
+    const onOpenSettings = (e: Event) => {
+      const t = (e as CustomEvent<{ tab?: ClinicSettingsTab }>).detail?.tab;
+      if (t) setSettingsInitialTab(t);
+      setIsSettingsModalOpen(true);
+    };
+    window.addEventListener(CLINIC_OPEN_SETTINGS_EVENT, onOpenSettings);
+    return () => window.removeEventListener(CLINIC_OPEN_SETTINGS_EVENT, onOpenSettings);
+  }, []);
 
   useEffect(() => {
     connect();
@@ -213,7 +229,10 @@ export function Dashboard() {
               {privacyMode ? <EyeOff className="w-5 h-5 text-emerald-600" /> : <Eye className="w-5 h-5" />}
             </button>
             <button 
-              onClick={() => setIsSettingsModalOpen(true)}
+              onClick={() => {
+                setSettingsInitialTab('structure');
+                setIsSettingsModalOpen(true);
+              }}
               className="p-2 rounded-full hover:bg-zinc-200 transition-colors" 
               title="Sozlamalar"
             >
@@ -262,7 +281,15 @@ export function Dashboard() {
       {/* Modals */}
       <PatientDetailsModal />
       {isAdmitModalOpen && <AdmitPatientModal onClose={() => setIsAdmitModalOpen(false)} />}
-      {isSettingsModalOpen && <SettingsModal onClose={() => setIsSettingsModalOpen(false)} />}
+      {isSettingsModalOpen && (
+        <SettingsModal
+          initialTab={settingsInitialTab}
+          onClose={() => {
+            setIsSettingsModalOpen(false);
+            setSettingsInitialTab('structure');
+          }}
+        />
+      )}
     </div>
   );
 }

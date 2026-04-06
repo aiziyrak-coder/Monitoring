@@ -19,6 +19,7 @@ function formatLastSeenRelative(ms: number | null | undefined): string {
 
 interface SettingsModalProps {
   onClose: () => void;
+  initialTab?: 'structure' | 'devices' | 'patients' | 'integration';
 }
 
 type SettingsPromptField =
@@ -105,8 +106,12 @@ function CustomConfirm({ isOpen, title, message, onConfirm, onCancel }: { isOpen
   );
 }
 
-export function SettingsModal({ onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<'structure' | 'devices' | 'patients' | 'integration'>('structure');
+export function SettingsModal({ onClose, initialTab = 'structure' }: SettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<'structure' | 'devices' | 'patients' | 'integration'>(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
   const [data, setData] = useState<any>({ departments: [], rooms: [], beds: [], devices: [] });
   const { patients, dischargePatient } = useStore();
   const [loading, setLoading] = useState(true);
