@@ -10,6 +10,7 @@ from monitoring.hl7_mllp_listener import (
     _try_consume_unframed_hl7,
 )
 from monitoring.models import Bed, Department, Device, Patient, Room
+from monitoring.services.hl7_obx import obx_to_vitals_dict
 
 
 class UnframedHl7Tests(TestCase):
@@ -65,3 +66,23 @@ class UnframedHl7Tests(TestCase):
         self.assertEqual(len(buf), 0)
         self.patient.refresh_from_db()
         self.assertEqual(self.patient.hr, 91)
+
+
+class K12StyleObxTests(TestCase):
+    """Comen/K12: OBX-2 da identifikator, qiymat 4-maydonda (OBX-5)."""
+
+    def test_obx_identifier_in_field2_value_in_field4(self) -> None:
+        msg = (
+            "MSH|^~\\&|SEND|REC|202401011200||ORU^R01|1|P|2.3\r"
+            "OBX|1|150022^MDC_ECG_HEART_RATE^MDC||88|||F\r"
+        )
+        d = obx_to_vitals_dict(msg)
+        self.assertEqual(d.get("hr"), 88)
+
+    def test_obx_spo2_vendor_field2(self) -> None:
+        msg = (
+            "MSH|^~\\&|SEND|REC|202401011200||ORU^R01|1|P|2.3\r"
+            "OBX|1|150021^MDC_PULS_OXIM_SAT_O2^MDC||97|||F\r"
+        )
+        d = obx_to_vitals_dict(msg)
+        self.assertEqual(d.get("spo2"), 97)

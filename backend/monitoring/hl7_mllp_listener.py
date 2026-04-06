@@ -88,10 +88,20 @@ def _obx_segment_count(msg: str) -> int:
 
 
 def _decode_hl7_bytes(raw: bytes) -> str:
-    try:
-        return raw.decode("utf-8", errors="replace")
-    except Exception:
-        return raw.decode("latin-1", errors="replace")
+    """Xitoy monitorlar (Comen/K12) GB18030; Yevropa UTF-8."""
+    if not raw:
+        return ""
+    fallback: str | None = None
+    for enc in ("utf-8-sig", "utf-8", "gb18030", "gbk", "cp936", "latin-1"):
+        try:
+            t = raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+        if fallback is None:
+            fallback = t
+        if "MSH|" in t:
+            return t
+    return fallback if fallback is not None else raw.decode("utf-8", errors="replace")
 
 
 def _strip_bom(data: bytes) -> bytes:

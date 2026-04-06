@@ -47,8 +47,12 @@ _OBS_SUBSTRING_FIELD: tuple[tuple[str, str], ...] = (
     ("MDC_ECG_HEART_RATE", "hr"),
     ("ECG_HEART_RATE", "hr"),
     ("HEART_RATE", "hr"),
+    ("HR^", "hr"),
+    ("^HR^", "hr"),
     ("MDC_PRESS_CUFF_SYS", "nibpSys"),
     ("MDC_PRESS_CUFF_DIA", "nibpDia"),
+    ("PRESSCUFF_SYS", "nibpSys"),
+    ("PRESSCUFF_DIA", "nibpDia"),
     ("PRESS_CUFF_SYS", "nibpSys"),
     ("PRESS_CUFF_DIA", "nibpDia"),
     ("CUFF_SYS", "nibpSys"),
@@ -190,6 +194,42 @@ def _obx_value_strings(parts: list[str], value_start: int) -> list[str]:
     return out
 
 
+def _obx_value_strings_flexible(parts: list[str], primary_start: int) -> list[str]:
+    """K12/Comen: qiymat 4-, 5- yoki 6-maydonda bo'lishi mumkin (OBX-2 siljishi)."""
+    for start in (primary_start, 4, 5, 3, 6, 7):
+        vs = _obx_value_strings(parts, start)
+        if vs:
+            return vs
+    return []
+
+
+def _looks_like_obx_identifier(field: str) -> bool:
+    s = field.strip()
+    if not s:
+        return False
+    if s.upper() in _KNOWN_OBX_VALUE_TYPES:
+        return False
+    return "^" in s or any(c.isdigit() for c in s)
+
+
+def _refine_obx_key_value_start(
+    parts: list[str], value_type: str, key_raw: str, value_start: int
+) -> tuple[str, str, int]:
+    """
+    OBX|1|150022^MDC_ECG...||72 — standart parserda kalit OBX-3 (bo'sh), qiymat 5 (yo'q);
+    haqiqiy kalit 2-maydonda, qiymat 4-maydonda.
+    """
+    p2 = (parts[2] if len(parts) > 2 else "").strip()
+    p2u = p2.upper()
+    key_stripped = (key_raw or "").strip()
+    if not key_stripped and _looks_like_obx_identifier(p2):
+        return ("NM", p2, 4)
+    if key_stripped and value_start == 5 and not _obx_value_strings(parts, 5):
+        if _obx_value_strings(parts, 4):
+            return (value_type, key_raw, 4)
+    return (value_type, key_raw, value_start)
+
+
 def _obx_layout(parts: list[str]) -> tuple[str, str, int]:
     """
     Qaytaradi: (value_type, obx3_key_raw, value_fields_boshlanadigan_indeks).
@@ -291,10 +331,13 @@ def obx_to_vitals_dict(hl7_text: str) -> dict[str, Any]:
         value_type, key_raw, value_start = _obx_layout(parts)
         while len(parts) < 18:
             parts.append("")
+        value_type, key_raw, value_start = _refine_obx_key_value_start(
+            parts, value_type, key_raw, value_start
+        )
         comps = _obx3_components(key_raw)
         code = comps[0] if comps else (key_raw.split("^")[0].strip() if key_raw else "")
         name_u = (comps[1] if len(comps) > 1 else (key_raw.split("^")[1] if "^" in key_raw else "")).upper()
-        value_strings = _obx_value_strings(parts, value_start)
+        value_strings = _obx_value_strings_flexible(parts, value_start)
         blob_u = (key_raw or "").upper()
 
         if _nibp_observation(blob_u):

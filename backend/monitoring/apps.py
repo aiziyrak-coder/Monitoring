@@ -31,6 +31,9 @@ class MonitoringConfig(AppConfig):
             return
         if "runserver" in sys.argv and os.environ.get("RUN_MAIN") != "true":
             return
+        # Uvicorn (run_dev / systemd): HL7 config.asgi _on_startup da — loop tayyor bo‘lgach.
+        if os.environ.get("CLINICMON_ASGI", "").lower() in ("1", "true", "yes"):
+            return
         from monitoring.hl7_mllp_listener import start_hl7_listener_if_enabled
 
         start_hl7_listener_if_enabled()

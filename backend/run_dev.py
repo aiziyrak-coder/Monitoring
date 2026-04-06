@@ -13,6 +13,8 @@ os.chdir(BASE_DIR)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 if __name__ == "__main__":
+    # apps.py HL7 ni bu yerda ishga tushirmasin — avval ASGI loop, keyin MLLP (vitals_update navbati).
+    os.environ.setdefault("CLINICMON_ASGI", "1")
     import uvicorn
 
     host = os.environ.get("BIND_HOST", "0.0.0.0")

@@ -91,6 +91,34 @@ export interface PatientData {
   notes: ClinicalNote[];
 }
 
+/** Socket `vitals_update` dan minimal bemor kartasi (kartada yo‘q bo‘lsa ham yangilanish yo‘qolmasin). */
+function patientStubFromVitalsUpdate(update: VitalsUpdatePayload): PatientData {
+  return {
+    id: update.id,
+    name: '',
+    room: '',
+    diagnosis: '',
+    doctor: '',
+    assignedNurse: '',
+    bedId: update.bedId ?? null,
+    linkedDeviceId: update.linkedDeviceId ?? null,
+    linkedDeviceLastSeenMs: update.linkedDeviceLastSeenMs ?? null,
+    linkedDeviceLastVitalsAppliedMs: update.linkedDeviceLastVitalsAppliedMs ?? null,
+    deviceBattery: update.deviceBattery ?? 100,
+    admissionDate: Date.now(),
+    vitals: update.vitals,
+    alarm: update.alarm,
+    alarmLimits: update.alarmLimits,
+    scheduledCheck: update.scheduledCheck,
+    history: update.history ?? [],
+    isPinned: update.isPinned ?? false,
+    lastRealVitalsMs: update.lastRealVitalsMs ?? null,
+    medications: update.medications ?? [],
+    labs: update.labs ?? [],
+    notes: update.notes ?? [],
+  };
+}
+
 /** Server `vitals_update` payload (one row per patient). */
 export interface VitalsUpdatePayload {
   id: string;
@@ -202,8 +230,8 @@ export const useStore = create<AppState>((set, get) => ({
     
     const socket = io(socketIoUrl(), {
       path: '/socket.io',
-      // Faqat polling: WebSocket ko'p proxy/Cloudflare da "transport close" beradi
-      transports: ['polling'],
+      // WebSocket tezroq; proxy xato bersa avtomatik polling ga o‘tadi
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
@@ -223,39 +251,37 @@ export const useStore = create<AppState>((set, get) => ({
       set((state) => {
         const newPatients = { ...state.patients };
         updates.forEach((update) => {
-          if (newPatients[update.id]) {
-            const p = newPatients[update.id];
-            newPatients[update.id] = {
-              ...p,
-              vitals: update.vitals,
-              alarm: update.alarm,
-              alarmLimits: update.alarmLimits ?? p.alarmLimits,
-              scheduledCheck: update.scheduledCheck,
-              deviceBattery: update.deviceBattery ?? p.deviceBattery,
-              history: update.history ?? p.history,
-              isPinned: update.isPinned ?? p.isPinned,
-              lastRealVitalsMs:
-                update.lastRealVitalsMs !== undefined
-                  ? update.lastRealVitalsMs
-                  : p.lastRealVitalsMs,
-              medications: update.medications ?? p.medications,
-              labs: update.labs ?? p.labs,
-              notes: update.notes ?? p.notes,
-              bedId: update.bedId !== undefined ? update.bedId : p.bedId,
-              linkedDeviceId:
-                update.linkedDeviceId !== undefined
-                  ? update.linkedDeviceId
-                  : p.linkedDeviceId,
-              linkedDeviceLastSeenMs:
-                update.linkedDeviceLastSeenMs !== undefined
-                  ? update.linkedDeviceLastSeenMs
-                  : p.linkedDeviceLastSeenMs,
-              linkedDeviceLastVitalsAppliedMs:
-                update.linkedDeviceLastVitalsAppliedMs !== undefined
-                  ? update.linkedDeviceLastVitalsAppliedMs
-                  : p.linkedDeviceLastVitalsAppliedMs,
-            };
-          }
+          const p = newPatients[update.id] ?? patientStubFromVitalsUpdate(update);
+          newPatients[update.id] = {
+            ...p,
+            vitals: update.vitals,
+            alarm: update.alarm,
+            alarmLimits: update.alarmLimits ?? p.alarmLimits,
+            scheduledCheck: update.scheduledCheck,
+            deviceBattery: update.deviceBattery ?? p.deviceBattery,
+            history: update.history ?? p.history,
+            isPinned: update.isPinned ?? p.isPinned,
+            lastRealVitalsMs:
+              update.lastRealVitalsMs !== undefined
+                ? update.lastRealVitalsMs
+                : p.lastRealVitalsMs,
+            medications: update.medications ?? p.medications,
+            labs: update.labs ?? p.labs,
+            notes: update.notes ?? p.notes,
+            bedId: update.bedId !== undefined ? update.bedId : p.bedId,
+            linkedDeviceId:
+              update.linkedDeviceId !== undefined
+                ? update.linkedDeviceId
+                : p.linkedDeviceId,
+            linkedDeviceLastSeenMs:
+              update.linkedDeviceLastSeenMs !== undefined
+                ? update.linkedDeviceLastSeenMs
+                : p.linkedDeviceLastSeenMs,
+            linkedDeviceLastVitalsAppliedMs:
+              update.linkedDeviceLastVitalsAppliedMs !== undefined
+                ? update.linkedDeviceLastVitalsAppliedMs
+                : p.linkedDeviceLastVitalsAppliedMs,
+          };
         });
         return { patients: newPatients };
       });
