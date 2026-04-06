@@ -121,6 +121,7 @@ def patient_to_wire_dict(
     out = {
         "id": p.id,
         "name": p.name,
+        "bedId": str(p.bed_id) if p.bed_id else None,
         "room": p.room,
         "diagnosis": p.diagnosis,
         "doctor": p.doctor,

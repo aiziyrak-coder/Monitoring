@@ -287,14 +287,26 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
               </div>
 
               {!hasLiveVitals && (
-                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-950 space-y-1">
+                <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-950 space-y-2">
                   <p>
                     <strong>Jonli vitallar kutilmoqda.</strong> Monitor HL7 (OBX) yoki REST orqali yuborishi kerak.
                   </p>
+                  {patient.bedId ? (
+                    <p className="text-xs text-amber-900/95 leading-relaxed font-mono bg-amber-100/80 border border-amber-200/80 rounded-lg px-2 py-1.5">
+                      <span className="font-sans font-semibold text-amber-950">Bu bemorni karavati ID: </span>
+                      {patient.bedId}
+                      <span className="font-sans text-amber-900/90 block mt-1">
+                        Sozlamalar → Qurilmalar jadvalidagi «Biriktirilgan joy» ID si bilan bir xil bo‘lishi kerak. Farq bo‘lsa, vitallar karta yozilmaydi.
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-800 leading-relaxed">
+                      <strong>Eslatma:</strong> bu bemorda karavat tanlanmagan yoki ma’lumot eskirgan — bemorni qayta qabul qiling va karavatni tanlang.
+                    </p>
+                  )}
                   <p className="text-xs text-amber-900/90 leading-relaxed">
-                    <strong>Muhim:</strong> qurilma <strong>shu bemor yotgan karavat</strong>ga biriktirilgan bo‘lsin
-                    (Tizim sozlamalari → Qurilmalar). Aks holda vitallar kartaga yozilmaydi. Ulanish —{" "}
-                    <strong>Integratsiya</strong>.
+                    Serverga HL7 porti <strong>6006</strong> ochiqmi va monitorda server manzili to‘g‘rimi — <strong>Integratsiya</strong> bo‘limida tekshiring.
+                    Agar ulanish «onlayn» bo‘lsa-yu grafik bo‘sh bo‘lsa, logda «OBX bor, lekin vitallar ajratilmadi» xabari bo‘lishi mumkin (OBX formati).
                   </p>
                 </div>
               )}

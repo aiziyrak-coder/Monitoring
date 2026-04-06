@@ -97,9 +97,10 @@ def _process_one_message(msg: str, peer: str) -> None:
             )
             if obx_n:
                 log.warning(
-                    "HL7: %s ta OBX bor, lekin vitallar ajratilmadi (peer=%s) — Mindray OBX kodini tekshiring",
+                    "HL7: %s ta OBX bor, lekin vitallar ajratilmadi (peer=%s, device=%s) — OBX-3 kodlari/nomi yoki qiymat turi mos kelmayapti; namuna log uchun xabar boshini yozing",
                     obx_n,
                     peer,
+                    dev.pk,
                 )
             else:
                 log.info(

@@ -63,6 +63,8 @@ export interface ClinicalNote {
 export interface PatientData {
   id: string;
   name: string;
+  /** Bemor yotgan karavat (qurilma ham shu ID ga biriktirilishi kerak) */
+  bedId?: string | null;
   room: string;
   diagnosis: string;
   doctor: string;
