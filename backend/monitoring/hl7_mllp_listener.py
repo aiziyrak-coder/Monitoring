@@ -96,11 +96,18 @@ def _process_one_message(msg: str, peer: str) -> None:
                 if seg.strip().startswith("OBX|")
             )
             if obx_n:
+                sample = ""
+                for seg in msg.replace("\n", "\r").split("\r"):
+                    s = seg.strip()
+                    if s.upper().startswith("OBX|"):
+                        sample = s[:240]
+                        break
                 log.warning(
-                    "HL7: %s ta OBX bor, lekin vitallar ajratilmadi (peer=%s, device=%s) — OBX-3 kodlari/nomi yoki qiymat turi mos kelmayapti; namuna log uchun xabar boshini yozing",
+                    "HL7: %s ta OBX bor, lekin vitallar ajratilmadi (peer=%s, device=%s). Birinchi OBX (240 belgigacha): %r",
                     obx_n,
                     peer,
                     dev.pk,
+                    sample,
                 )
             else:
                 log.info(

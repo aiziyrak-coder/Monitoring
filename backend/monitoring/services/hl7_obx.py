@@ -64,6 +64,29 @@ _OBS_SUBSTRING_FIELD: tuple[tuple[str, str], ...] = (
     ("BLOOD_PRESSURE", "nibp_combined"),
 )
 
+# Standart: OBX|set|TYPE|OBX-3|sub|value...
+# Ba'zi yuboruvchilar: OBX|TYPE|OBX-3|value... (set/sub yo'q yoki boshqacha)
+_KNOWN_OBX_VALUE_TYPES: frozenset[str] = frozenset(
+    {
+        "NM",
+        "SN",
+        "ST",
+        "TX",
+        "FT",
+        "CE",
+        "CWE",
+        "CF",
+        "DT",
+        "TM",
+        "TS",
+        "SI",
+        "ED",
+        "NA",
+        "NUL",
+        "RP",
+    }
+)
+
 
 def _norm_segments(hl7_text: str) -> list[str]:
     return [s.strip() for s in hl7_text.replace("\n", "\r").split("\r") if s.strip()]
@@ -114,12 +137,6 @@ def _name_hint(name_upper: str) -> str | None:
     return None
 
 
-def _observation_blob_upper(parts: list[str]) -> str:
-    """OBX-3 butun qatori va barcha komponentlar (qidiruv uchun)."""
-    raw = parts[3] if len(parts) > 3 else ""
-    return raw.upper()
-
-
 def _obx3_components(key_raw: str) -> list[str]:
     """OBX-3 komponentlari (birinchi bo'sh bo'lishi mumkin: ^150022^MDC)."""
     if not key_raw:
@@ -163,17 +180,37 @@ def _nibp_observation(blob_u: str) -> bool:
     )
 
 
-def _obx_value_str(parts: list[str]) -> str:
-    """OBX-5 asosan; ba'zida qiymat 6–10 indekslarga siljiydi (vendor farqi)."""
-    for idx in range(5, min(len(parts), 12)):
-        if parts[idx].strip():
-            return parts[idx]
-    return ""
+def _obx_value_strings(parts: list[str], value_start: int) -> list[str]:
+    """OBX qiymat maydonlari — ketma-ket bo'sh bo'lmagan qatorlar."""
+    out: list[str] = []
+    for idx in range(value_start, min(len(parts), 18)):
+        s = parts[idx].strip()
+        if s:
+            out.append(s)
+    return out
+
+
+def _obx_layout(parts: list[str]) -> tuple[str, str, int]:
+    """
+    Qaytaradi: (value_type, obx3_key_raw, value_fields_boshlanadigan_indeks).
+    Standart: type=parts[2], key=parts[3], values from 5.
+    Siljigan: type=parts[1], key=parts[2], values from 3 (TYPE set o‘rnida).
+    """
+    while len(parts) < 10:
+        parts.append("")
+    p2 = (parts[2] if len(parts) > 2 else "").strip().upper()
+    p1 = (parts[1] if len(parts) > 1 else "").strip().upper()
+    if p2 in _KNOWN_OBX_VALUE_TYPES:
+        return (p2, (parts[3] if len(parts) > 3 else ""), 5)
+    if p1 in _KNOWN_OBX_VALUE_TYPES:
+        return (p1, (parts[2] if len(parts) > 2 else ""), 3)
+    # Notanish tur — NM deb qabul qilamiz (OBX-2 bo'sh yoki vendor maxsus)
+    return ("NM", (parts[3] if len(parts) > 3 else ""), 5)
 
 
 def _parse_sn_numeric(value_str: str) -> float | None:
-    """SN (structured numeric) yoki ^ bilan ajratilgan birinchi son."""
-    for chunk in value_str.split("^"):
+    """SN (structured numeric) yoki ^ / & bilan ajratilgan birinchi son."""
+    for chunk in re.split(r"[\^&~]", value_str):
         n = _parse_num(chunk)
         if n is not None:
             return n
@@ -192,11 +229,12 @@ def _hl7_unescape_value(s: str) -> str:
 
 
 def _parse_num(value_str: str) -> float | None:
-    s = _hl7_unescape_value(value_str).split("^")[0].strip()
+    s = _hl7_unescape_value(value_str).split("^")[0].split("&")[0].strip()
     if not s or s in (".", "-"):
         return None
-    s = re.sub(r"^[<>≤≥]\s*", "", s)
-    m = re.match(r"^-?\d+(?:[.,]\d+)?", s.replace(",", "."))
+    s = re.sub(r"^[<>≤≥+]\s*", "", s)
+    s = s.replace(",", ".")
+    m = re.match(r"^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", s)
     if not m:
         return None
     try:
@@ -220,7 +258,7 @@ def _first_numeric_from_obx_value(value_str: str, value_type: str) -> float | No
         rep = rep.strip()
         if not rep:
             continue
-        for chunk in rep.split("^"):
+        for chunk in re.split(r"[\^&]", rep):
             chunk = chunk.strip()
             if not chunk:
                 continue
@@ -247,29 +285,37 @@ def _try_split_nibp(value_str: str) -> tuple[int | None, int | None]:
 def obx_to_vitals_dict(hl7_text: str) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for line in _norm_segments(hl7_text):
-        if not line.startswith("OBX|"):
+        if not line.upper().startswith("OBX|"):
             continue
         parts = line.split("|")
-        while len(parts) < 8:
+        value_type, key_raw, value_start = _obx_layout(parts)
+        while len(parts) < 18:
             parts.append("")
-        key_raw = parts[3] or ""
         comps = _obx3_components(key_raw)
         code = comps[0] if comps else (key_raw.split("^")[0].strip() if key_raw else "")
         name_u = (comps[1] if len(comps) > 1 else (key_raw.split("^")[1] if "^" in key_raw else "")).upper()
-        value_str = _obx_value_str(parts)
-        value_type = (parts[2] or "").strip().upper() or "NM"
-        blob_u = _observation_blob_upper(parts)
+        value_strings = _obx_value_strings(parts, value_start)
+        blob_u = (key_raw or "").upper()
 
         if _nibp_observation(blob_u):
-            sys_dia = _try_split_nibp(value_str)
-            if sys_dia[0] is not None or sys_dia[1] is not None:
-                if sys_dia[0] is not None:
-                    out["nibpSys"] = sys_dia[0]
-                if sys_dia[1] is not None:
-                    out["nibpDia"] = sys_dia[1]
+            got_slash_nibp = False
+            for vs in value_strings:
+                sys_dia = _try_split_nibp(vs)
+                if sys_dia[0] is not None or sys_dia[1] is not None:
+                    if sys_dia[0] is not None:
+                        out["nibpSys"] = sys_dia[0]
+                    if sys_dia[1] is not None:
+                        out["nibpDia"] = sys_dia[1]
+                    got_slash_nibp = True
+                    break
+            if got_slash_nibp:
                 continue
 
-        num = _first_numeric_from_obx_value(value_str, value_type)
+        num: float | None = None
+        for vs in value_strings:
+            num = _first_numeric_from_obx_value(vs, value_type)
+            if num is not None:
+                break
         if num is None:
             continue
 
@@ -282,11 +328,14 @@ def obx_to_vitals_dict(hl7_text: str) -> dict[str, Any]:
         if not field:
             field = _field_from_observation(key_raw, name_u)
         if field == "nibp_combined":
-            sys_dia = _try_split_nibp(value_str)
-            if sys_dia[0] is not None:
-                out["nibpSys"] = sys_dia[0]
-            if sys_dia[1] is not None:
-                out["nibpDia"] = sys_dia[1]
+            for vs in value_strings:
+                sys_dia = _try_split_nibp(vs)
+                if sys_dia[0] is not None:
+                    out["nibpSys"] = sys_dia[0]
+                if sys_dia[1] is not None:
+                    out["nibpDia"] = sys_dia[1]
+                if sys_dia[0] is not None or sys_dia[1] is not None:
+                    break
             continue
         if not field:
             continue
