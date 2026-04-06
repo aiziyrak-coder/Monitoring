@@ -9,6 +9,7 @@ class HealthApiTests(TestCase):
         self.assertEqual(data.get("status"), "ok")
         self.assertIn("hl7", data)
         self.assertIn("ingest", data)
+        self.assertIn("hl7TcpSessionsDeviceResolved", data["ingest"])
 
 
 class PatientDetailApiTests(TestCase):

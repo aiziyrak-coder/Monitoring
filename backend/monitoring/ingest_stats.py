@@ -11,6 +11,14 @@ _hl7_obx_segments = 0
 _hl7_parse_nonempty = 0
 _hl7_parse_empty_with_obx = 0
 _vitals_written_to_patient = 0
+_hl7_tcp_sessions_with_device = 0
+
+
+def record_hl7_tcp_session_with_device() -> None:
+    """Port 6006 da TCP ochilib, peer bo‘yicha qurilma topilganda (HL7 matni bo‘lmasa ham)."""
+    global _hl7_tcp_sessions_with_device
+    with _lock:
+        _hl7_tcp_sessions_with_device += 1
 
 
 def record_hl7_device_message(*, obx_segment_count: int, vitals_non_empty: bool) -> None:
@@ -37,6 +45,7 @@ def snapshot() -> dict[str, Any]:
     with _lock:
         return {
             "hl7MessagesWithResolvedDevice": _hl7_messages_with_device,
+            "hl7TcpSessionsDeviceResolved": _hl7_tcp_sessions_with_device,
             "hl7BatchesWithObxSegments": _hl7_batches_with_obx,
             "hl7ObxSegmentTotal": _hl7_obx_segments,
             "hl7ParsedToVitalsNonEmpty": _hl7_parse_nonempty,

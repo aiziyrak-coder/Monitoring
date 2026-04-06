@@ -7,6 +7,7 @@ from django.utils import timezone
 from monitoring.hl7_mllp_listener import (
     _flush_hl7_buffer_on_close,
     _process_one_message,
+    _try_consume_segment_only_oru,
     _try_consume_unframed_hl7,
 )
 from monitoring.models import Bed, Department, Device, Patient, Room
@@ -66,6 +67,19 @@ class UnframedHl7Tests(TestCase):
         self.assertEqual(len(buf), 0)
         self.patient.refresh_from_db()
         self.assertEqual(self.patient.hr, 91)
+
+    def test_segment_only_oru_crlf_no_fs(self) -> None:
+        """Faqat \\r bilan tugaydigan ORU (ochiq oqim)."""
+        msg = (
+            "MSH|^~\\&|S|R|2024||ORU^R01|1|P|2.3\r"
+            "PID|1||\r"
+            "OBX|1|NM|150022^HR^MDC||77|||F\r"
+        )
+        buf = bytearray(msg.encode("utf-8"))
+        self.assertTrue(_try_consume_segment_only_oru(buf, "203.0.113.50"))
+        self.assertEqual(len(buf), 0)
+        self.patient.refresh_from_db()
+        self.assertEqual(self.patient.hr, 77)
 
 
 class K12StyleObxTests(TestCase):

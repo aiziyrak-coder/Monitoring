@@ -13,7 +13,10 @@ from django.db import close_old_connections
 
 from monitoring.asgi_support import schedule_vitals_emit
 from monitoring.models import Device
-from monitoring.ingest_stats import record_hl7_device_message
+from monitoring.ingest_stats import (
+    record_hl7_device_message,
+    record_hl7_tcp_session_with_device,
+)
 from monitoring.services.device_ingest import apply_device_vitals_dict
 from monitoring.services.hl7_obx import extract_msh_sending_application, obx_to_vitals_dict
 
@@ -138,6 +141,18 @@ def _try_consume_unframed_hl7(buf: bytearray, peer: str) -> bool:
             _process_one_message(_decode_hl7_bytes(raw), peer)
             did = True
             continue
+        found_end = False
+        for end_seq in (b"\r\x1c\x0d", b"\r\x1c\r", b"\r\x1c\n", b"\n\x1c\x0d", b"\n\x1c\r"):
+            j2 = data.find(end_seq, 4)
+            if j2 >= 0:
+                raw = data[: j2 + len(end_seq)]
+                del buf[: j2 + len(end_seq)]
+                _process_one_message(_decode_hl7_bytes(raw), peer)
+                did = True
+                found_end = True
+                break
+        if found_end:
+            continue
         k = data.find(b"\rMSH|", 10)
         if k < 0:
             k = data.find(b"\nMSH|", 10)
@@ -150,10 +165,45 @@ def _try_consume_unframed_hl7(buf: bytearray, peer: str) -> bool:
         return did
 
 
+def _try_consume_segment_only_oru(buf: bytearray, peer: str) -> bool:
+    """
+    FS va MLLP bo‘lmasa, lekin segmentlar \\r yoki \\n bilan tugasa (ochiq TCP oqimi).
+    Comen/K12 ko‘pincha shunday yuboradi; ulanish yopilmasa ham har recv dan keyin tekshiriladi.
+    """
+    data = _strip_bom(bytes(buf))
+    i = data.find(b"MSH|")
+    if i < 0:
+        return False
+    if i > 0:
+        del buf[:i]
+        data = bytes(buf)
+    du = data.upper()
+    if b"OBX|" not in du:
+        return False
+    if not (data.endswith(b"\r") or data.endswith(b"\n")):
+        return False
+    text = _decode_hl7_bytes(data).strip()
+    if "OBX|" not in text.upper():
+        return False
+    log.info(
+        "HL7: faqat segment (\\r/\\n) bilan ORU, %s bayt peer=%s",
+        len(data),
+        peer,
+    )
+    try:
+        _process_one_message(text, peer)
+    except Exception:
+        log.exception("HL7: segment-only qayta ishlash xato peer=%s", peer)
+    buf.clear()
+    return True
+
+
 def _flush_hl7_buffer_on_close(buf: bytearray, peer: str) -> None:
     """Ulanish yopilganda MLLP/FS bo'lmagan qoldiqni bitta ORU deb qayta ishlash."""
     while _try_consume_unframed_hl7(buf, peer):
         pass
+    if _try_consume_segment_only_oru(buf, peer):
+        return
     if not buf:
         return
     data = _strip_bom(bytes(buf))
@@ -233,11 +283,19 @@ def _process_one_message(msg: str, peer: str) -> None:
                 peer,
             )
     else:
-        log.debug(
-            "HL7: qurilma topilmadi va OBX yo'q peer=%s MSH-3=%r",
-            peer,
-            app,
-        )
+        if "MSH|" in msg.upper() and len(msg.strip()) > 15:
+            log.warning(
+                "HL7: qurilma topilmadi peer=%s (NAT IP / lokal IP / HL7 ID ni tekshiring). "
+                "Boshlang‘ich matn: %r",
+                peer,
+                msg.replace("\r", "\\r").replace("\n", "\\n")[:400],
+            )
+        else:
+            log.debug(
+                "HL7: qurilma topilmadi va OBX yo'q peer=%s MSH-3=%r",
+                peer,
+                app,
+            )
 
 
 def _handle_client(conn: socket.socket, addr: tuple) -> None:
@@ -248,6 +306,7 @@ def _handle_client(conn: socket.socket, addr: tuple) -> None:
     try:
         dev0 = _resolve_device("", peer)
         if dev0:
+            record_hl7_tcp_session_with_device()
             apply_device_vitals_dict(dev0, {})
             log.info(
                 "HL7: TCP bilan qurilma onlayn (id=%s, peer=%s)",
@@ -282,15 +341,14 @@ def _handle_client(conn: socket.socket, addr: tuple) -> None:
                     break
                 raw = bytes(buf[i0 + 1 : i1])
                 del buf[: i1 + 2]
-                try:
-                    text = raw.decode("utf-8", errors="replace")
-                except Exception:
-                    text = raw.decode("latin-1", errors="replace")
+                text = _decode_hl7_bytes(raw)
                 try:
                     _process_one_message(text, peer)
                 except Exception:
                     log.exception("HL7 qayta ishlash xato peer=%s", peer)
             while _try_consume_unframed_hl7(buf, peer):
+                pass
+            if _try_consume_segment_only_oru(buf, peer):
                 pass
     except TimeoutError:
         log.debug("HL7 client timeout peer=%s", peer)

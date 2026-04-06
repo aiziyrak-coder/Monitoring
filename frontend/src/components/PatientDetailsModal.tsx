@@ -20,6 +20,8 @@ function msAgoLabel(ms: number | null | undefined): string {
 /** /api/health → ingest */
 interface HealthIngest {
   hl7MessagesWithResolvedDevice?: number;
+  /** TCP 6006 da qurilma topilgan ulanishlar (matn kelmasa ham) */
+  hl7TcpSessionsDeviceResolved?: number;
   hl7ObxPresentButVitalsEmpty?: number;
   hl7ParsedToVitalsNonEmpty?: number;
   vitalUpdatesWrittenToPatientDb?: number;
@@ -419,7 +421,11 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
                       <div className="border-t border-sky-200/80 pt-2 space-y-1 text-[11px] text-sky-900/95">
                         <p className="font-medium text-sky-900">Server hisobi (backend qayta ishga tushgandan)</p>
                         <p>
-                          HL7 xabar (qurilma topilgan):{' '}
+                          HL7 TCP (qurilma aniqlangan ulanish):{' '}
+                          <strong>{healthIngest.hl7TcpSessionsDeviceResolved ?? 0}</strong>
+                        </p>
+                        <p>
+                          HL7 xabar (to‘liq qayta ishlangan):{' '}
                           <strong>{healthIngest.hl7MessagesWithResolvedDevice ?? 0}</strong>
                         </p>
                         <p>
@@ -433,12 +439,21 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
                           Bemorga yozilgan: <strong>{healthIngest.vitalUpdatesWrittenToPatientDb ?? 0}</strong>
                         </p>
                         {(healthIngest.hl7MessagesWithResolvedDevice ?? 0) === 0 &&
+                        (healthIngest.hl7TcpSessionsDeviceResolved ?? 0) > 0 ? (
+                          <p className="text-sky-950/90 pt-1 leading-relaxed">
+                            TCP ulanishlar bor, lekin HL7 matni ajratilmagan — monitor 6006 ga yubormayapti yoki
+                            paket formati boshqacha. Tarmoq (shlyuz, port 6006) va monitor HL7 sozlamalarini
+                            tekshiring; server logida «HL7: faqat segment» yoki «qurilma topilmadi» qidiriladi.
+                          </p>
+                        ) : null}
+                        {(healthIngest.hl7MessagesWithResolvedDevice ?? 0) === 0 &&
+                        (healthIngest.hl7TcpSessionsDeviceResolved ?? 0) === 0 &&
                         patient.linkedDeviceLastSeenMs != null &&
                         patient.linkedDeviceLastSeenMs > 0 ? (
                           <p className="text-sky-950/90 pt-1 leading-relaxed">
-                            Yuqoridagi «HL7 xabar» 0 bo‘lsa, lekin signal yangi bo‘lsa — ko‘pincha TCP ochilgan,
-                            lekin xabar MLLP (0x0B…0x1C0x0D) ramkasiz kelgan. Server endi bunday oqimni ham
-                            qayta ishlaydi; backendni yangilab, qayta tekshiring.
+                            Signal yangi, lekin HL7 porti orqali ulanish hisobiga tushmagan — REST yoki boshqa
+                            yo‘l bilan «onlayn» bo‘lishi mumkin. Vitallar faqat 6006 HL7 yoki REST /vitals orqali
+                            keladi.
                           </p>
                         ) : null}
                       </div>
