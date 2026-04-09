@@ -33,6 +33,12 @@ fi
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings}"
 .venv/bin/python manage.py migrate --noinput
 
+# Taqdimot: 8 ta demo bemor (demo-p-01..08) + tarix — /etc/clinicmonitoring.env da CLINICMON_SEED_DEMO=1
+if [[ "${CLINICMON_SEED_DEMO:-0}" == "1" ]]; then
+  echo ">>> CLINICMON_SEED_DEMO=1 — seed_demo_patients"
+  .venv/bin/python manage.py seed_demo_patients
+fi
+
 # Eski API nomi bilan konteyner/servis (klinika 8010 da)
 systemctl stop clinic-monitoring-api 2>/dev/null || true
 systemctl disable clinic-monitoring-api 2>/dev/null || true

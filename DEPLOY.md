@@ -41,6 +41,15 @@ Bu skript: `origin/main` bilan tenglashadi, `migrate`, frontend `build`, nginx, 
 
 Tekshiruv: `curl -sS https://clinicmonitoringapi.ziyrak.org/api/health`
 
+**8 ta demo bemor (taqdimot kartalari):** serverda bir marta yoki har deployda:
+
+```bash
+cd /opt/clinicmonitoring/backend && sudo .venv/bin/python manage.py seed_demo_patients
+sudo systemctl restart clinicmonitoring-backend
+```
+
+Yoki `/etc/clinicmonitoring.env` ga `CLINICMON_SEED_DEMO=1` qo‘ying — keyingi `remote-update.sh` / `server-pull-restart.sh` da avtomatik. Yengil vital tebranishi uchun: `DEMO_VITALS_ENABLED=1`.
+
 ### Xavfsizlik (qisqa)
 
 - **`DJANGO_DEBUG=false`** va **`DJANGO_SECRET_KEY`** (32+ belgi) productionda majburiy (`/etc/clinicmonitoring.env`, `chmod 600`).
