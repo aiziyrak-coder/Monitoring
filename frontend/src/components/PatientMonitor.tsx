@@ -1,4 +1,4 @@
-import { Heart, Clock, X, Battery, UserCircle, Droplets, Pin } from 'lucide-react';
+import { Heart, Clock, X, Battery, UserCircle, Droplets, Pin, Wifi, WifiOff } from 'lucide-react';
 import { PatientData, useStore } from '../store';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -16,32 +16,37 @@ interface PatientMonitorProps {
   size?: 'large' | 'medium' | 'small';
 }
 
-/** Backend `DEVICE_ONLINE_SILENCE_SEC` default bilan mos (signal eskirgan = oflayn deb hisoblash). */
+/** Backend DEVICE_ONLINE_SILENCE_SEC = 120s bilan mos. */
 const DEVICE_STALE_MS = 120_000;
 
 export const PatientMonitor = React.memo(function PatientMonitor({ patient, size = 'large' }: PatientMonitorProps) {
   const { vitals, alarm, alarmLimits, scheduledCheck, deviceBattery, doctor } = patient;
-  const hasLiveVitals =
-    patient.lastRealVitalsMs != null && patient.lastRealVitalsMs > 0;
 
-  /** Jonli HL7/REST yo‘q, lekin kartada «demo» kabi barqaror raqam — bazadagi oxirgi/default vitallar */
-  const showDbPlaceholder =
-    !hasLiveVitals && vitals.hr > 0 && vitals.spo2 > 0;
-  const displayVitals = hasLiveVitals || showDbPlaceholder;
+  const hasLiveVitals = patient.lastRealVitalsMs != null && patient.lastRealVitalsMs > 0;
 
   const linked = Boolean(patient.linkedDeviceId);
   const lastSeen = patient.linkedDeviceLastSeenMs;
-  const deviceProbablyOffline =
+  const deviceOnline =
     linked &&
-    (lastSeen == null ||
-      lastSeen <= 0 ||
-      Date.now() - lastSeen > DEVICE_STALE_MS);
+    lastSeen != null &&
+    lastSeen > 0 &&
+    Date.now() - lastSeen <= DEVICE_STALE_MS;
+  const deviceProbablyOffline = linked && !deviceOnline;
+
+  /**
+   * Jonli vital yo'q, lekin DB da qiymat bor — ko'rsatamiz (bazaviy/placeholder).
+   * Sensorlar ulanmagan bo'lsa ham, DB vitals ko'rsatilsin.
+   */
+  const hasDbVitals = vitals.hr > 0 || vitals.spo2 > 0 || vitals.nibpSys > 0 || vitals.rr > 0;
+  const showDbPlaceholder = !hasLiveVitals && hasDbVitals;
+  const displayVitals = hasLiveVitals || showDbPlaceholder;
+
   const privacyMode = useStore(state => state.privacyMode);
   const setSchedule = useStore(state => state.setSchedule);
   const clearAlarm = useStore(state => state.clearAlarm);
   const setSelectedPatientId = useStore(state => state.setSelectedPatientId);
   const togglePinPatient = useStore(state => state.togglePinPatient);
-  
+
   const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
@@ -52,16 +57,9 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
       setTimeLeft(null);
       return;
     }
-    
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((nextCheckTime - Date.now()) / 1000));
-      setTimeLeft(remaining);
-    }, 1000);
-    
-    // Initial call
-    const remaining = Math.max(0, Math.ceil((nextCheckTime - Date.now()) / 1000));
-    setTimeLeft(remaining);
-    
+    const calc = () => Math.max(0, Math.ceil((nextCheckTime - Date.now()) / 1000));
+    setTimeLeft(calc());
+    const interval = setInterval(() => setTimeLeft(calc()), 1000);
     return () => clearInterval(interval);
   }, [nextCheckTime]);
 
@@ -81,27 +79,36 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
     setShowScheduleMenu(false);
   };
 
-  // Define sizes
   const isSmall = size === 'small';
   const isMedium = size === 'medium';
   const isLarge = size === 'large';
 
   return (
-    <div 
+    <div
       onClick={() => setSelectedPatientId(patient.id)}
       className={cn(
-        "relative flex flex-col rounded-xl border transition-all duration-300 cursor-pointer group",
+        'relative flex flex-col rounded-xl border transition-all duration-300 cursor-pointer group',
         alarmStyles[alarm.level],
-        isSmall ? "p-1 h-[120px]" : isMedium ? "p-1.5 h-[180px]" : "p-2 h-[240px]"
+        isSmall ? 'p-1 h-[120px]' : isMedium ? 'p-1.5 h-[180px]' : 'p-2 h-[240px]',
       )}
     >
       {/* Header */}
-      <div className={cn("flex justify-between items-start shrink-0", isSmall ? "mb-0.5" : "mb-1.5")}>
+      <div className={cn('flex justify-between items-start shrink-0', isSmall ? 'mb-0.5' : 'mb-1.5')}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
+            {/* Device online dot */}
+            {linked && !isSmall && (
+              <span
+                title={deviceOnline ? 'Qurilma ulangan' : 'Qurilma oflayn'}
+                className={cn(
+                  'w-1.5 h-1.5 rounded-full shrink-0',
+                  deviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-400',
+                )}
+              />
+            )}
             <h3 className={cn(
-              "font-semibold text-zinc-900 group-hover:text-emerald-600 transition-colors truncate",
-              isSmall ? "text-[10px]" : isMedium ? "text-xs" : "text-sm"
+              'font-semibold text-zinc-900 group-hover:text-emerald-600 transition-colors truncate',
+              isSmall ? 'text-[10px]' : isMedium ? 'text-xs' : 'text-sm',
             )}>
               {maskedName}
             </h3>
@@ -122,24 +129,22 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
           )}
           {isSmall && <p className="text-[8px] text-zinc-700 truncate">{patient.room}</p>}
         </div>
-        
+
         <div className="flex flex-col items-end space-y-0.5 ml-1 shrink-0 max-w-[50%]">
           {alarm.level !== 'none' && (
             <div className={cn(
-              "rounded-full font-bold uppercase tracking-wider flex items-center max-w-full",
-              isSmall ? "px-1 text-[7px]" : "px-1.5 py-0.5 text-[8px]",
+              'rounded-full font-bold uppercase tracking-wider flex items-center max-w-full',
+              isSmall ? 'px-1 text-[7px]' : 'px-1.5 py-0.5 text-[8px]',
               alarm.level === 'red' ? 'bg-red-500 text-white' :
               alarm.level === 'yellow' ? 'bg-yellow-500 text-black' :
               alarm.level === 'purple' ? 'bg-purple-500 text-white' :
-              'bg-blue-500 text-white'
+              'bg-blue-500 text-white',
             )}>
-              {!isSmall && (
-                <span className="truncate">{alarm.message || 'DIQQAT'}</span>
-              )}
+              {!isSmall && <span className="truncate">{alarm.message || 'DIQQAT'}</span>}
               {isSmall && '!'}
               {alarm.level === 'purple' && !isSmall && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); clearAlarm(patient.id); }} 
+                <button
+                  onClick={(e) => { e.stopPropagation(); clearAlarm(patient.id); }}
                   className="ml-1 hover:text-zinc-800 shrink-0"
                 >
                   <X className="w-2.5 h-2.5" />
@@ -147,7 +152,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
               )}
             </div>
           )}
-          
+
           {!isSmall && (
             <div className="flex space-x-1 items-center mt-0.5">
               <button
@@ -155,10 +160,22 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-zinc-200 rounded text-zinc-600 hover:text-zinc-900"
                 title={patient.isPinned ? "Qadashni bekor qilish" : "Qadab qo'yish"}
               >
-                <Pin className={cn("w-3 h-3", patient.isPinned && "fill-emerald-500 text-emerald-500 opacity-100")} />
+                <Pin className={cn('w-3 h-3', patient.isPinned && 'fill-emerald-500 text-emerald-500 opacity-100')} />
               </button>
+              {/* Device wifi indicator */}
+              {linked && (
+                <div
+                  title={deviceOnline ? 'Qurilma ulangan (HL7/TCP)' : 'Qurilma oflayn'}
+                  className={deviceOnline ? 'text-emerald-500' : 'text-red-400'}
+                >
+                  {deviceOnline
+                    ? <Wifi className="w-2.5 h-2.5" />
+                    : <WifiOff className="w-2.5 h-2.5" />
+                  }
+                </div>
+              )}
               <div className="flex items-center text-zinc-600" title={`Quvvat: ${Math.round(deviceBattery)}%`}>
-                <Battery className={cn("w-2.5 h-2.5", deviceBattery < 20 ? "text-red-500 animate-pulse" : "")} />
+                <Battery className={cn('w-2.5 h-2.5', deviceBattery < 20 ? 'text-red-500 animate-pulse' : '')} />
               </div>
               <div className="relative flex items-center">
                 {timeLeft !== null && (
@@ -166,17 +183,17 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
                     {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                   </span>
                 )}
-                <button 
+                <button
                   onClick={(e) => { e.stopPropagation(); setShowScheduleMenu(!showScheduleMenu); }}
                   className={cn(
-                    "text-zinc-600 hover:text-purple-700 transition-colors",
-                    scheduledCheck ? "text-purple-600" : ""
-                  )} 
+                    'text-zinc-600 hover:text-purple-700 transition-colors',
+                    scheduledCheck ? 'text-purple-600' : '',
+                  )}
                   title="Rejali tekshiruv"
                 >
                   <Clock className="w-2.5 h-2.5" />
                 </button>
-                
+
                 {showScheduleMenu && (
                   <div className="absolute right-0 mt-2 w-32 bg-white border border-zinc-200 rounded-md shadow-lg z-20 overflow-hidden">
                     <div className="px-3 py-2 text-xs font-semibold text-zinc-700 border-b border-zinc-200">Interval</div>
@@ -192,46 +209,53 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
         </div>
       </div>
 
+      {/* Status banner — only when no live vitals */}
       {!isSmall && !hasLiveVitals && (
-        <p className="text-[9px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1 leading-tight">
+        <div className={cn(
+          'text-[9px] rounded px-1.5 py-0.5 mt-0.5 leading-tight flex items-center gap-1 shrink-0',
+          deviceOnline
+            ? 'text-emerald-800 bg-emerald-50 border border-emerald-200'
+            : deviceProbablyOffline
+              ? 'text-amber-800 bg-amber-50 border border-amber-200'
+              : 'text-zinc-600 bg-zinc-50 border border-zinc-200',
+        )}>
+          {deviceOnline && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />}
           {linked
-            ? deviceProbablyOffline
-              ? 'Qurilma oflayn yoki HL7 yo‘q — NAT, port 6006 va monitorni tekshiring. Pastdagi raqamlar bazadan (taxminiy).'
-              : 'Jonli vital kutilmoqda — pastdagi raqamlar bazadan (taxminiy).'
-            : 'Qurilma biriktirilmagan yoki serverdan vital kutilmoqda.'}
-        </p>
+            ? deviceOnline
+              ? 'Qurilma ulangan — sensor yoki HL7 signal kutilmoqda. Quyidagi bazaviy qiymatlar.'
+              : 'Qurilma oflayn — sensor va HL7 ulanishini tekshiring. Quyidagi bazaviy qiymatlar.'
+            : 'Qurilma biriktirilmagan — bazaviy qiymatlar.'}
+        </div>
       )}
 
       {/* Numerics Grid */}
       <div className={cn(
-        "flex-1 grid gap-0.5 min-h-0 mt-1 transition-opacity",
-        showDbPlaceholder && !hasLiveVitals && "opacity-85",
-        isSmall ? "grid-cols-2" : isMedium ? "grid-cols-2 grid-rows-2" : "grid-cols-3 grid-rows-2"
+        'flex-1 grid gap-0.5 min-h-0 mt-1 transition-opacity',
+        showDbPlaceholder && !hasLiveVitals ? 'opacity-80' : 'opacity-100',
+        isSmall ? 'grid-cols-2' : isMedium ? 'grid-cols-2 grid-rows-2' : 'grid-cols-3 grid-rows-2',
       )}>
-        
+
         {/* HR */}
         <div className={cn(
-          "bg-zinc-50 rounded flex flex-col justify-between border border-emerald-200 overflow-hidden",
-          isSmall ? "p-0.5" : "p-1.5",
-          isLarge && "col-span-1 row-span-2"
+          'bg-zinc-50 rounded flex flex-col justify-between border border-emerald-200 overflow-hidden',
+          isSmall ? 'p-0.5' : 'p-1.5',
+          isLarge && 'col-span-1 row-span-2',
         )}>
           <div className="flex justify-between items-start shrink-0">
-            <span className={cn("text-emerald-800 font-bold truncate pr-1", isSmall ? "text-[7px]" : "text-[9px]")}>YUCh</span>
+            <span className={cn('text-emerald-800 font-bold truncate pr-1', isSmall ? 'text-[7px]' : 'text-[9px]')}>YUCh</span>
             {!isSmall && (
-              <Heart
-                className={cn(
-                  "w-2.5 h-2.5 text-emerald-700 shrink-0",
-                  displayVitals && vitals.hr > 0 && hasLiveVitals ? "animate-pulse" : ""
-                )}
-              />
+              <Heart className={cn(
+                'w-2.5 h-2.5 text-emerald-700 shrink-0',
+                hasLiveVitals && vitals.hr > 0 ? 'animate-pulse' : '',
+              )} />
             )}
           </div>
-          <div className="flex items-baseline justify-end flex-1 min-h-0 items-center">
+          <div className="flex items-center justify-end flex-1 min-h-0">
             <span className={cn(
-              "font-bold text-emerald-800 font-mono tracking-tighter truncate leading-none",
-              isSmall ? "text-sm" : isMedium ? "text-xl" : "text-3xl"
+              'font-bold text-emerald-800 font-mono tracking-tighter truncate leading-none',
+              isSmall ? 'text-sm' : isMedium ? 'text-xl' : 'text-3xl',
             )}>
-              {!displayVitals || vitals.hr === 0 ? '—' : vitals.hr}
+              {displayVitals && vitals.hr > 0 ? vitals.hr : '—'}
             </span>
           </div>
           {!isSmall && (
@@ -244,20 +268,20 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
 
         {/* SpO2 */}
         <div className={cn(
-          "bg-zinc-50 rounded flex flex-col justify-between border border-cyan-200 overflow-hidden",
-          isSmall ? "p-0.5" : "p-1.5",
-          isLarge && "col-span-1 row-span-2"
+          'bg-zinc-50 rounded flex flex-col justify-between border border-cyan-200 overflow-hidden',
+          isSmall ? 'p-0.5' : 'p-1.5',
+          isLarge && 'col-span-1 row-span-2',
         )}>
           <div className="flex justify-between items-start shrink-0">
-            <span className={cn("text-cyan-800 font-bold truncate pr-1", isSmall ? "text-[7px]" : "text-[9px]")}>SpO2%</span>
+            <span className={cn('text-cyan-800 font-bold truncate pr-1', isSmall ? 'text-[7px]' : 'text-[9px]')}>SpO2%</span>
             {!isSmall && <Droplets className="w-2.5 h-2.5 text-cyan-700 shrink-0" />}
           </div>
-          <div className="flex items-baseline justify-end flex-1 min-h-0 items-center">
+          <div className="flex items-center justify-end flex-1 min-h-0">
             <span className={cn(
-              "font-bold text-cyan-800 font-mono tracking-tighter truncate leading-none",
-              isSmall ? "text-sm" : isMedium ? "text-xl" : "text-3xl"
+              'font-bold text-cyan-800 font-mono tracking-tighter truncate leading-none',
+              isSmall ? 'text-sm' : isMedium ? 'text-xl' : 'text-3xl',
             )}>
-              {!displayVitals || vitals.spo2 === 0 ? '—' : vitals.spo2}
+              {displayVitals && vitals.spo2 > 0 ? vitals.spo2 : '—'}
             </span>
           </div>
           {!isSmall && (
@@ -270,62 +294,62 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
 
         {/* NIBP */}
         <div className={cn(
-          "bg-zinc-50 rounded flex flex-col justify-between border border-zinc-200 overflow-hidden",
-          isSmall ? "p-0.5 col-span-2" : "p-1.5",
-          isMedium && "col-span-2",
-          isLarge && "col-span-1 row-span-1"
+          'bg-zinc-50 rounded flex flex-col justify-between border border-zinc-200 overflow-hidden',
+          isSmall ? 'p-0.5 col-span-2' : 'p-1.5',
+          isMedium && 'col-span-2',
+          isLarge && 'col-span-1 row-span-1',
         )}>
           <div className="flex justify-between items-start shrink-0">
-            <span className={cn("text-zinc-800 font-bold truncate pr-1", isSmall ? "text-[7px]" : "text-[9px]")}>AQB</span>
+            <span className={cn('text-zinc-800 font-bold truncate pr-1', isSmall ? 'text-[7px]' : 'text-[9px]')}>AQB</span>
           </div>
           <div className="flex flex-col items-end justify-center flex-1 min-h-0 overflow-hidden">
             <div className="flex items-baseline truncate max-w-full">
               <span className={cn(
-                "font-bold text-zinc-950 font-mono tracking-tighter truncate leading-none",
-                isSmall ? "text-xs" : isMedium ? "text-lg" : "text-xl"
+                'font-bold text-zinc-950 font-mono tracking-tighter truncate leading-none',
+                isSmall ? 'text-xs' : isMedium ? 'text-lg' : 'text-xl',
               )}>
-                {!displayVitals || vitals.nibpSys === 0 ? '—' : vitals.nibpSys}
+                {displayVitals && vitals.nibpSys > 0 ? vitals.nibpSys : '—'}
               </span>
               <span className="text-zinc-600 mx-0.5 shrink-0 text-xs">/</span>
               <span className={cn(
-                "font-bold text-zinc-950 font-mono tracking-tighter truncate leading-none",
-                isSmall ? "text-xs" : isMedium ? "text-lg" : "text-xl"
+                'font-bold text-zinc-950 font-mono tracking-tighter truncate leading-none',
+                isSmall ? 'text-xs' : isMedium ? 'text-lg' : 'text-xl',
               )}>
-                {!displayVitals || vitals.nibpDia === 0 ? '—' : vitals.nibpDia}
+                {displayVitals && vitals.nibpDia > 0 ? vitals.nibpDia : '—'}
               </span>
             </div>
             {!isSmall && (
               <span className="text-[8px] text-zinc-600 mt-0.5 truncate max-w-full shrink-0">
-                {!hasLiveVitals
-                  ? showDbPlaceholder
-                    ? "Jonli AQB kutilmoqda"
-                    : "O'lchanmagan"
-                  : vitals.nibpTime
+                {hasLiveVitals
+                  ? vitals.nibpTime
                     ? formatDistanceToNow(vitals.nibpTime, { addSuffix: true, locale: uz })
+                    : "O'lchanmagan"
+                  : displayVitals
+                    ? 'Bazaviy qiymat'
                     : "O'lchanmagan"}
               </span>
             )}
           </div>
         </div>
 
-        {/* RR & Temp (Only for Large) */}
+        {/* RR & Temp (Large only) */}
         {isLarge && (
           <div className="flex gap-0.5 col-span-1 row-span-1 min-h-0">
             <div className="flex-1 bg-zinc-50 rounded p-1 flex flex-col justify-between border border-yellow-300 overflow-hidden">
               <span className="text-yellow-800 font-bold text-[9px] shrink-0 truncate">NCh</span>
-              <div className="flex items-baseline justify-end flex-1 min-h-0 items-center">
+              <div className="flex items-center justify-end flex-1 min-h-0">
                 <span className="text-lg font-bold text-yellow-800 font-mono tracking-tighter truncate leading-none">
-                  {!displayVitals || vitals.rr === 0 ? '—' : vitals.rr}
+                  {displayVitals && vitals.rr > 0 ? vitals.rr : '—'}
                 </span>
               </div>
             </div>
             <div className="flex-1 bg-zinc-50 rounded p-1 flex flex-col justify-between border border-orange-300 overflow-hidden">
               <span className="text-orange-800 font-bold text-[9px] shrink-0 truncate">Harorat</span>
-              <div className="flex items-baseline justify-end flex-1 min-h-0 items-center">
+              <div className="flex items-center justify-end flex-1 min-h-0">
                 <span className="text-lg font-bold text-orange-800 font-mono tracking-tighter truncate leading-none">
-                  {!displayVitals || !Number.isFinite(vitals.temp) || vitals.temp === 0
-                    ? '—'
-                    : vitals.temp.toFixed(1)}
+                  {displayVitals && Number.isFinite(vitals.temp) && vitals.temp > 0
+                    ? vitals.temp.toFixed(1)
+                    : '—'}
                 </span>
               </div>
             </div>
