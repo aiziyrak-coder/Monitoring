@@ -159,9 +159,8 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
   const VITALS_FRESH_MS = 10 * 60 * 1000; // 10 daqiqa
   const lastRealMs = patient?.lastRealVitalsMs ?? 0;
   const hasRecentRealVitals = lastRealMs > 0 && (Date.now() - lastRealMs) < VITALS_FRESH_MS;
-  const hasLiveVitals =
-    patient != null &&
-    (hasRecentRealVitals || (deviceOnlineModal && hasDbVitalsModal));
+  // Faqat haqiqiy HL7 vitals kelgandagina "live" hisoblanadi
+  const hasLiveVitals = patient != null && hasRecentRealVitals;
 
   React.useEffect(() => {
     setLocalLimits(null);

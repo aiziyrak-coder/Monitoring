@@ -34,17 +34,17 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
   const deviceProbablyOffline = linked && !deviceOnline;
 
   /**
-   * hasLiveVitals: real HL7/REST vital SO'NGGI 10 DAQIQADA kelgan
-   * YOKI qurilma online + DB da vital bor (TCP heartbeat = device ishlayapti).
+   * hasLiveVitals: faqat real HL7/REST vital SO'NGGI 10 DAQIQADA kelgan bo'lsa.
+   * TCP heartbeat = device online, lekin vitals real emas.
+   * Device online + DB vitals bor = "sensor kutilmoqda" holati, raqamlar ko'rsatilmaydi.
    */
   const now = Date.now();
   const lastRealMs = patient.lastRealVitalsMs ?? 0;
   const hasRecentRealVitals = lastRealMs > 0 && (now - lastRealMs) < VITALS_FRESH_MS;
   const hasDbVitals = vitals.hr > 0 || vitals.spo2 > 0 || vitals.nibpSys > 0 || vitals.rr > 0;
-  // Device online bo'lsa (TCP heartbeat), DB dagi vitals "live" deb ko'rsatiladi
-  const hasLiveVitals = hasRecentRealVitals || (deviceOnline && hasDbVitals);
-  const showDbPlaceholder = !hasRecentRealVitals && hasDbVitals;
-  const displayVitals = hasLiveVitals || showDbPlaceholder;
+  // Faqat real HL7 kelgandagina vitals ko'rsatiladi
+  const hasLiveVitals = hasRecentRealVitals;
+  const displayVitals = hasLiveVitals;
 
   const privacyMode = useStore(state => state.privacyMode);
   const setSchedule = useStore(state => state.setSchedule);
@@ -236,7 +236,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
       {/* Numerics Grid */}
       <div className={cn(
         'flex-1 grid gap-0.5 min-h-0 mt-1 transition-opacity',
-        showDbPlaceholder && !hasLiveVitals ? 'opacity-80' : 'opacity-100',
+        'opacity-100',
         isSmall ? 'grid-cols-2' : isMedium ? 'grid-cols-2 grid-rows-2' : 'grid-cols-3 grid-rows-2',
       )}>
 
