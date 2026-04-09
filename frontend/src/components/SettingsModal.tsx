@@ -477,6 +477,19 @@ export function SettingsModal({ onClose, initialTab = 'structure' }: SettingsMod
                       </button>
                     </div>
 
+                    <div className="text-xs text-sky-950 bg-sky-50 border border-sky-200 rounded-xl p-3 space-y-1.5 leading-relaxed">
+                      <p className="font-semibold text-sky-900">Oflayn — tez tekshiruv</p>
+                      <p>
+                        API: <code className="bg-white/90 px-1 rounded font-mono text-[11px]">/api/health</code> →{' '}
+                        <code className="bg-white/90 px-1 rounded font-mono text-[11px]">ingest</code>:{' '}
+                        <code className="font-mono text-[11px]">hl7TcpExternalAccepts</code> 0 bo‘lsa, klinikadan VPS{' '}
+                        <strong>6006</strong> ga TCP umuman kelmagan (bulut firewall, provayder, yoki monitorda noto‘g‘ri Server IP).
+                        Agar &gt;0 bo‘lsa lekin <code className="font-mono text-[11px]">hl7TcpExternalNoDeviceMatch</code> ham o‘sayotgan bo‘lsa —{' '}
+                        <code className="font-mono text-[11px]">hl7LastExternalPeerIp</code> ni ko‘ring: shu manzilni qurilmada{' '}
+                        <strong>NAT tashqi IP</strong> maydoniga yozing (84.54… har doim routeringiz IPsi emas).
+                      </p>
+                    </div>
+
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left text-zinc-600">
                         <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-200">

@@ -15,6 +15,8 @@ from monitoring.asgi_support import schedule_vitals_emit
 from monitoring.models import Device
 from monitoring.ingest_stats import (
     record_hl7_device_message,
+    record_hl7_tcp_external_accept,
+    record_hl7_tcp_external_no_device,
     record_hl7_tcp_session_with_device,
 )
 from monitoring.services.device_ingest import apply_device_vitals_dict
@@ -300,7 +302,16 @@ def _process_one_message(msg: str, peer: str) -> None:
 
 def _handle_client(conn: socket.socket, addr: tuple) -> None:
     peer = _normalize_peer_ip(_peer_ip(addr))
+    # /api/health mahalliy tekshiruv — HL7 siklini ishga tushirmaslik
+    if peer in ("127.0.0.1", "::1"):
+        try:
+            conn.close()
+        except OSError:
+            pass
+        return
+
     max_buf = int(getattr(settings, "HL7_MAX_BUFFER_BYTES", 2 * 1024 * 1024))
+    record_hl7_tcp_external_accept(peer)
     log.info("HL7: TCP ulanish %s (port %s)", peer, settings.HL7_LISTEN_PORT)
     # MLLP xabari kelmasa ham: NAT / lokal IP bo‘yicha qurilmani onlayn qilish
     try:
@@ -311,6 +322,14 @@ def _handle_client(conn: socket.socket, addr: tuple) -> None:
             log.info(
                 "HL7: TCP bilan qurilma onlayn (id=%s, peer=%s)",
                 dev0.pk,
+                peer,
+            )
+        else:
+            record_hl7_tcp_external_no_device()
+            log.warning(
+                "HL7: TCP peer=%s — tizimda mos qurilma yo‘q. "
+                "Qurilmalar: «NAT tashqi IP» aynan shu manzil (yoki HL7 MSH-3) bo‘lishi kerak; "
+                "klinika Internet IP odatda router sozlamasida ko‘rinadi.",
                 peer,
             )
     except Exception:

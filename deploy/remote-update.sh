@@ -126,4 +126,9 @@ if systemctl is-active --quiet nginx 2>/dev/null; then
   systemctl reload nginx
 fi
 
+# HL7 (6006) — ufw faol bo‘lsa ruxsat (bulut panel firewall alohida)
+if [[ -f "$APP_DIR/deploy/open-hl7-port.sh" ]]; then
+  bash "$APP_DIR/deploy/open-hl7-port.sh" || true
+fi
+
 echo "Deploy yakunlandi."
