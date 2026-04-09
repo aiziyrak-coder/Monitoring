@@ -7,7 +7,8 @@ from monitoring.models import Department, Device, Patient
 class Command(BaseCommand):
     help = (
         "Barcha bemorni, vital tarixini, dori/lab/qaydlarni o'chiradi. "
-        "Ixtiyoriy: --with-infrastructure — bo'lim/palata/joy/qurilmalar (demo sxema)."
+        "Ixtiyoriy: --with-infrastructure — bo'lim/palata/joy/qurilmalar (demo sxema). "
+        "Taqdimot demo (demo-p-01…08) ham shu buyruq bilan o'chadi."
     )
 
     def add_arguments(self, parser):

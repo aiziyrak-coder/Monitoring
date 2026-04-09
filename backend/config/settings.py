@@ -182,6 +182,18 @@ except ValueError as e:
     raise ImproperlyConfigured("DEVICE_ONLINE_SILENCE_SEC butun son bo‘lishi kerak.") from e
 DEVICE_ONLINE_SILENCE_SEC = max(30, min(_silence, 86_400))
 
+# Taqdimot: 8 ta demo bemorda vitallarni yengil o'zgartirish (seed_demo_patients dan keyin)
+DEMO_VITALS_ENABLED = os.environ.get("DEMO_VITALS_ENABLED", "false").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+try:
+    _demo_iv = float(os.environ.get("DEMO_VITALS_INTERVAL_SEC", "5"))
+except ValueError as e:
+    raise ImproperlyConfigured("DEMO_VITALS_INTERVAL_SEC haqiqiy son bo'lishi kerak.") from e
+DEMO_VITALS_INTERVAL_SEC = max(2.0, min(_demo_iv, 120.0))
+
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",

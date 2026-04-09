@@ -33,7 +33,15 @@ class MonitoringConfig(AppConfig):
             return
         # Uvicorn (run_dev / systemd): HL7 config.asgi _on_startup da — loop tayyor bo‘lgach.
         if os.environ.get("CLINICMON_ASGI", "").lower() in ("1", "true", "yes"):
-            return
-        from monitoring.hl7_mllp_listener import start_hl7_listener_if_enabled
+            pass
+        else:
+            from monitoring.hl7_mllp_listener import start_hl7_listener_if_enabled
 
-        start_hl7_listener_if_enabled()
+            start_hl7_listener_if_enabled()
+
+        from django.conf import settings
+
+        if getattr(settings, "DEMO_VITALS_ENABLED", False):
+            from monitoring.demo_vitals_worker import start_demo_vitals_worker
+
+            start_demo_vitals_worker()
