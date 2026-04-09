@@ -18,6 +18,8 @@ interface PatientMonitorProps {
 
 /** Backend DEVICE_ONLINE_SILENCE_SEC = 120s bilan mos. */
 const DEVICE_STALE_MS = 120_000;
+/** Agar lastRealVitalsMs bundan katta bo'lsa, HL7 data "fresh" hisoblanadi. */
+const VITALS_FRESH_MS = 10 * 60 * 1000; // 10 daqiqa
 
 export const PatientMonitor = React.memo(function PatientMonitor({ patient, size = 'large' }: PatientMonitorProps) {
   const { vitals, alarm, alarmLimits, scheduledCheck, deviceBattery, doctor } = patient;
@@ -32,13 +34,16 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
   const deviceProbablyOffline = linked && !deviceOnline;
 
   /**
-   * hasLiveVitals: real HL7/REST vital kelgan YOKI qurilma online + DB da vital bor.
-   * Sensorlarsiz TCP ulanib turgan qurilma ham "live" ko'rsatilsin.
+   * hasLiveVitals: real HL7/REST vital SO'NGGI 10 DAQIQADA kelgan
+   * YOKI qurilma online + DB da vital bor (TCP heartbeat = device ishlayapti).
    */
-  const hasRealVitalsMs = patient.lastRealVitalsMs != null && patient.lastRealVitalsMs > 0;
+  const now = Date.now();
+  const lastRealMs = patient.lastRealVitalsMs ?? 0;
+  const hasRecentRealVitals = lastRealMs > 0 && (now - lastRealMs) < VITALS_FRESH_MS;
   const hasDbVitals = vitals.hr > 0 || vitals.spo2 > 0 || vitals.nibpSys > 0 || vitals.rr > 0;
-  const hasLiveVitals = hasRealVitalsMs || (deviceOnline && hasDbVitals);
-  const showDbPlaceholder = !hasRealVitalsMs && hasDbVitals;
+  // Device online bo'lsa (TCP heartbeat), DB dagi vitals "live" deb ko'rsatiladi
+  const hasLiveVitals = hasRecentRealVitals || (deviceOnline && hasDbVitals);
+  const showDbPlaceholder = !hasRecentRealVitals && hasDbVitals;
   const displayVitals = hasLiveVitals || showDbPlaceholder;
 
   const privacyMode = useStore(state => state.privacyMode);
@@ -209,8 +214,8 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
         </div>
       </div>
 
-      {/* Status banner — only when no live vitals */}
-      {!isSmall && !hasLiveVitals && (
+      {/* Status banner — only when no recent real vitals */}
+      {!isSmall && !hasRecentRealVitals && (
         <div className={cn(
           'text-[9px] rounded px-1.5 py-0.5 mt-0.5 leading-tight flex items-center gap-1 shrink-0',
           deviceOnline
@@ -222,9 +227,9 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
           {deviceOnline && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />}
           {linked
             ? deviceOnline
-              ? 'Qurilma ulangan — sensor yoki HL7 signal kutilmoqda. Quyidagi bazaviy qiymatlar.'
-              : 'Qurilma oflayn — sensor va HL7 ulanishini tekshiring. Quyidagi bazaviy qiymatlar.'
-            : 'Qurilma biriktirilmagan — bazaviy qiymatlar.'}
+              ? 'Qurilma ulangan — HL7 data kutilmoqda'
+              : 'Qurilma oflayn — HL7 ulanishini tekshiring'
+            : 'Qurilma biriktirilmagan'}
         </div>
       )}
 

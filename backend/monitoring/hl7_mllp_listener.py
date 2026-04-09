@@ -55,7 +55,13 @@ def _normalize_peer_ip(peer: str) -> str:
 
 
 def _resolve_device(msg: str, peer: str) -> Device | None:
-    """MSH-3, keyin lokal IP, keyin NAT tashqi IP — log yozmaydi."""
+    """
+    Qurilmani aniqlash tartibi:
+    1. MSH-3 (HL7 Sending Application) — aniq ID
+    2. Lokal IP manzil
+    3. NAT tashqi IP (hl7_nat_source_ip)
+    4. Fallback: bitta qurilma bo'lsa, uni qaytaradi (HL7_NAT_SINGLE_DEVICE_FALLBACK)
+    """
     close_old_connections()
     app = extract_msh_sending_application(msg)
     if app:
@@ -81,6 +87,19 @@ def _resolve_device(msg: str, peer: str) -> Device | None:
     dev = nat_qs.first()
     if dev:
         return dev
+
+    # Fallback: agar faqat bitta qurilma ro'yxatda bo'lsa va sozlamada yoqilgan bo'lsa
+    # bu ko'pincha NAT orqasidagi bitta monitor uchun ishlatiladi
+    if getattr(settings, "HL7_NAT_SINGLE_DEVICE_FALLBACK", False):
+        all_devs = list(Device.objects.all()[:2])
+        if len(all_devs) == 1:
+            log.info(
+                "HL7: NAT_SINGLE_DEVICE_FALLBACK — peer=%s uchun yagona qurilma %r ishlatildi",
+                peer,
+                all_devs[0].pk,
+            )
+            return all_devs[0]
+
     return None
 
 
@@ -240,6 +259,17 @@ def _process_one_message(msg: str, peer: str) -> None:
     vitals = obx_to_vitals_dict(msg)
 
     if dev:
+        # Agar MSH-3 mavjud va device da hl7_sending_application bo'sh bo'lsa — avtomatik saqlash
+        app = extract_msh_sending_application(msg)
+        if app and not dev.hl7_sending_application:
+            Device.objects.filter(pk=dev.pk).update(hl7_sending_application=app)
+            dev.hl7_sending_application = app
+            log.info(
+                "HL7: qurilma %r MSH-3=%r avtomatik saqlandi",
+                dev.pk,
+                app,
+            )
+
         record_hl7_device_message(
             obx_segment_count=obx_n, vitals_non_empty=bool(vitals)
         )

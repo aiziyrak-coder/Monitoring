@@ -156,10 +156,12 @@ function PatientDetailsModalContent({ patientId }: { patientId: string }) {
     ((patient.vitals?.hr ?? 0) > 0 ||
       (patient.vitals?.spo2 ?? 0) > 0 ||
       (patient.vitals?.nibpSys ?? 0) > 0);
+  const VITALS_FRESH_MS = 10 * 60 * 1000; // 10 daqiqa
+  const lastRealMs = patient?.lastRealVitalsMs ?? 0;
+  const hasRecentRealVitals = lastRealMs > 0 && (Date.now() - lastRealMs) < VITALS_FRESH_MS;
   const hasLiveVitals =
     patient != null &&
-    ((patient.lastRealVitalsMs != null && patient.lastRealVitalsMs > 0) ||
-      (deviceOnlineModal && hasDbVitalsModal));
+    (hasRecentRealVitals || (deviceOnlineModal && hasDbVitalsModal));
 
   React.useEffect(() => {
     setLocalLimits(null);
