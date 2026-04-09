@@ -48,6 +48,10 @@ export function DeviceFormModal({
   const [hl7NatSourceIp, setHl7NatSourceIp] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const editingId = editingDevice?.id ?? null;
+
+  // Faqat oyna ochilganda / boshqa qurilma tanlanganda — Tuzilma poll (12s) beds/rooms
+  // yangi referens bilan forma maydonlarini TOZALAMASIN.
   useEffect(() => {
     if (!open) return;
     if (editingDevice) {
@@ -56,10 +60,6 @@ export function DeviceFormModal({
       setModel(editingDevice.model ?? '');
       setHl7SendingApplication(editingDevice.hl7SendingApplication ?? '');
       setHl7NatSourceIp(editingDevice.hl7NatSourceIp ?? '');
-      const c = cascadeFromBedId(editingDevice.bedId, beds, rooms);
-      setDepartmentId(c.departmentId);
-      setRoomId(c.roomId);
-      setBedId(c.bedId);
     } else {
       setDepartmentId('');
       setRoomId('');
@@ -70,7 +70,19 @@ export function DeviceFormModal({
       setHl7SendingApplication('');
       setHl7NatSourceIp('');
     }
-  }, [open, editingDevice, beds, rooms]);
+  // editingDevice closure — faqat open / editingId (poll beds/rooms forma tozalamasin)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingId]);
+
+  // Tahrirlash: joy zanjiri — massiv referensi emas, faqat uzunlik
+  useEffect(() => {
+    if (!open || !editingDevice) return;
+    const c = cascadeFromBedId(editingDevice.bedId, beds, rooms);
+    setDepartmentId(c.departmentId);
+    setRoomId(c.roomId);
+    setBedId(c.bedId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- beds/rooms closure, poll referens emas
+  }, [open, editingId, editingDevice?.bedId, beds.length, rooms.length]);
 
   if (!open) return null;
 
@@ -146,11 +158,17 @@ export function DeviceFormModal({
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
-            <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/40 p-4">
-              <label className="flex items-center gap-2 text-sm font-semibold text-emerald-900 mb-3">
+            <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50/40 p-4 scroll-mt-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-emerald-900 mb-1">
                 <MapPin className="w-4 h-4" />
                 Bo‘lim, palata, karavat
               </label>
+              <p className="text-xs text-emerald-800/85 mb-3 leading-relaxed">
+                <span className="font-semibold text-emerald-900">1</span> Bo‘lim →{' '}
+                <span className="font-semibold text-emerald-900">2</span> Palata →{' '}
+                <span className="font-semibold text-emerald-900">3</span> Karavat. Agar pastdagi ro‘yxatlar
+                ko‘rinmasa, oynani yuqoriga aylantiring.
+              </p>
               {!hasBeds ? (
                 <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
                   Hozircha joy yo‘q. «Tuzilma» bo‘limida bo‘lim → xona → joy yarating, keyin bu oynani qayta oching.
@@ -288,13 +306,13 @@ export function DeviceBedAssignModal({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open && device) {
-      const c = cascadeFromBedId(device.bedId, beds, rooms);
-      setDepartmentId(c.departmentId);
-      setRoomId(c.roomId);
-      setBedId(c.bedId);
-    }
-  }, [open, device, beds, rooms]);
+    if (!open || !device) return;
+    const c = cascadeFromBedId(device.bedId, beds, rooms);
+    setDepartmentId(c.departmentId);
+    setRoomId(c.roomId);
+    setBedId(c.bedId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 12s poll yangi beds/rooms tanlovni buzmasin
+  }, [open, device?.id, device?.bedId, beds.length, rooms.length]);
 
   if (!open || !device) return null;
 
