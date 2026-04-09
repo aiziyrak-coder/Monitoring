@@ -16,10 +16,26 @@ interface PatientMonitorProps {
   size?: 'large' | 'medium' | 'small';
 }
 
+/** Backend `DEVICE_ONLINE_SILENCE_SEC` default bilan mos (signal eskirgan = oflayn deb hisoblash). */
+const DEVICE_STALE_MS = 120_000;
+
 export const PatientMonitor = React.memo(function PatientMonitor({ patient, size = 'large' }: PatientMonitorProps) {
   const { vitals, alarm, alarmLimits, scheduledCheck, deviceBattery, doctor } = patient;
   const hasLiveVitals =
     patient.lastRealVitalsMs != null && patient.lastRealVitalsMs > 0;
+
+  /** Jonli HL7/REST yo‘q, lekin kartada «demo» kabi barqaror raqam — bazadagi oxirgi/default vitallar */
+  const showDbPlaceholder =
+    !hasLiveVitals && vitals.hr > 0 && vitals.spo2 > 0;
+  const displayVitals = hasLiveVitals || showDbPlaceholder;
+
+  const linked = Boolean(patient.linkedDeviceId);
+  const lastSeen = patient.linkedDeviceLastSeenMs;
+  const deviceProbablyOffline =
+    linked &&
+    (lastSeen == null ||
+      lastSeen <= 0 ||
+      Date.now() - lastSeen > DEVICE_STALE_MS);
   const privacyMode = useStore(state => state.privacyMode);
   const setSchedule = useStore(state => state.setSchedule);
   const clearAlarm = useStore(state => state.clearAlarm);
@@ -178,13 +194,18 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
 
       {!isSmall && !hasLiveVitals && (
         <p className="text-[9px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1 leading-tight">
-          Serverdan vital kutilmoqda
+          {linked
+            ? deviceProbablyOffline
+              ? 'Qurilma oflayn yoki HL7 yo‘q — NAT, port 6006 va monitorni tekshiring. Pastdagi raqamlar bazadan (taxminiy).'
+              : 'Jonli vital kutilmoqda — pastdagi raqamlar bazadan (taxminiy).'
+            : 'Qurilma biriktirilmagan yoki serverdan vital kutilmoqda.'}
         </p>
       )}
 
       {/* Numerics Grid */}
       <div className={cn(
-        "flex-1 grid gap-0.5 min-h-0 mt-1",
+        "flex-1 grid gap-0.5 min-h-0 mt-1 transition-opacity",
+        showDbPlaceholder && !hasLiveVitals && "opacity-85",
         isSmall ? "grid-cols-2" : isMedium ? "grid-cols-2 grid-rows-2" : "grid-cols-3 grid-rows-2"
       )}>
         
@@ -200,7 +221,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
               <Heart
                 className={cn(
                   "w-2.5 h-2.5 text-emerald-700 shrink-0",
-                  hasLiveVitals && vitals.hr > 0 ? "animate-pulse" : ""
+                  displayVitals && vitals.hr > 0 && hasLiveVitals ? "animate-pulse" : ""
                 )}
               />
             )}
@@ -210,7 +231,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
               "font-bold text-emerald-800 font-mono tracking-tighter truncate leading-none",
               isSmall ? "text-sm" : isMedium ? "text-xl" : "text-3xl"
             )}>
-              {!hasLiveVitals || vitals.hr === 0 ? '—' : vitals.hr}
+              {!displayVitals || vitals.hr === 0 ? '—' : vitals.hr}
             </span>
           </div>
           {!isSmall && (
@@ -236,7 +257,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
               "font-bold text-cyan-800 font-mono tracking-tighter truncate leading-none",
               isSmall ? "text-sm" : isMedium ? "text-xl" : "text-3xl"
             )}>
-              {!hasLiveVitals || vitals.spo2 === 0 ? '—' : vitals.spo2}
+              {!displayVitals || vitals.spo2 === 0 ? '—' : vitals.spo2}
             </span>
           </div>
           {!isSmall && (
@@ -263,20 +284,22 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
                 "font-bold text-zinc-950 font-mono tracking-tighter truncate leading-none",
                 isSmall ? "text-xs" : isMedium ? "text-lg" : "text-xl"
               )}>
-                {!hasLiveVitals || vitals.nibpSys === 0 ? '—' : vitals.nibpSys}
+                {!displayVitals || vitals.nibpSys === 0 ? '—' : vitals.nibpSys}
               </span>
               <span className="text-zinc-600 mx-0.5 shrink-0 text-xs">/</span>
               <span className={cn(
                 "font-bold text-zinc-950 font-mono tracking-tighter truncate leading-none",
                 isSmall ? "text-xs" : isMedium ? "text-lg" : "text-xl"
               )}>
-                {!hasLiveVitals || vitals.nibpDia === 0 ? '—' : vitals.nibpDia}
+                {!displayVitals || vitals.nibpDia === 0 ? '—' : vitals.nibpDia}
               </span>
             </div>
             {!isSmall && (
               <span className="text-[8px] text-zinc-600 mt-0.5 truncate max-w-full shrink-0">
                 {!hasLiveVitals
-                  ? "O'lchanmagan"
+                  ? showDbPlaceholder
+                    ? "Jonli AQB kutilmoqda"
+                    : "O'lchanmagan"
                   : vitals.nibpTime
                     ? formatDistanceToNow(vitals.nibpTime, { addSuffix: true, locale: uz })
                     : "O'lchanmagan"}
@@ -292,7 +315,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
               <span className="text-yellow-800 font-bold text-[9px] shrink-0 truncate">NCh</span>
               <div className="flex items-baseline justify-end flex-1 min-h-0 items-center">
                 <span className="text-lg font-bold text-yellow-800 font-mono tracking-tighter truncate leading-none">
-                  {!hasLiveVitals || vitals.rr === 0 ? '—' : vitals.rr}
+                  {!displayVitals || vitals.rr === 0 ? '—' : vitals.rr}
                 </span>
               </div>
             </div>
@@ -300,7 +323,7 @@ export const PatientMonitor = React.memo(function PatientMonitor({ patient, size
               <span className="text-orange-800 font-bold text-[9px] shrink-0 truncate">Harorat</span>
               <div className="flex items-baseline justify-end flex-1 min-h-0 items-center">
                 <span className="text-lg font-bold text-orange-800 font-mono tracking-tighter truncate leading-none">
-                  {!hasLiveVitals || !Number.isFinite(vitals.temp) || vitals.temp === 0
+                  {!displayVitals || !Number.isFinite(vitals.temp) || vitals.temp === 0
                     ? '—'
                     : vitals.temp.toFixed(1)}
                 </span>
