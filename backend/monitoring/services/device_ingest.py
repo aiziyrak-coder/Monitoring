@@ -87,6 +87,12 @@ def apply_device_vitals_dict(dev: Device, body: dict) -> dict[str, Any] | None:
     dev.save(update_fields=["status", "last_seen_ms"])
 
     if not body:
+        # Hech vital yo'q — lekin qurilma onlayn, frontendga device status yuboramiz
+        if dev.bed_id:
+            p = Patient.objects.filter(bed_id=dev.bed_id).first()
+            if p:
+                wire = patient_to_wire_dict(p, omit_history=True, linked_device=dev)
+                return build_vitals_socket_payload(wire)
         return None
 
     if not dev.bed_id:
