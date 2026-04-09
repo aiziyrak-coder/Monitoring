@@ -118,6 +118,34 @@ Repodan yordamchi skript (serverda, repodan keyin):
 cd /opt/clinicmonitoring && sudo bash deploy/fix-ssl-both-domains.sh
 ```
 
+### Certbot: «Could not install certificate» / «find a matching server block»
+
+Bu **sertifikat yo‘qligi** eman: LE odatda allaqachon `/etc/letsencrypt/live/clinicmonitoring.ziyrak.org/` ga yozgan. Certbotning **nginx o‘rnatuvchisi** sizning `sites-enabled` dagi fayllarni topa olmagan.
+
+**Qiling:**
+
+1. SAN tekshiring (ikkala domen chiqsin):
+
+```bash
+sudo openssl x509 -in /etc/letsencrypt/live/clinicmonitoring.ziyrak.org/fullchain.pem -noout -text | grep -A2 "Subject Alternative Name"
+```
+
+2. Repodagi nginx vhostni joylang va nginxni qayta yuklang (bitta skript):
+
+```bash
+cd /opt/clinicmonitoring && sudo git pull && sudo bash deploy/fix-ssl-both-domains.sh
+```
+
+Yoki qo‘lda:
+
+```bash
+sudo cp /opt/clinicmonitoring/deploy/nginx/monitoring-active.conf /etc/nginx/sites-available/0-clinicmonitoring-django.conf
+sudo ln -sf /etc/nginx/sites-available/0-clinicmonitoring-django.conf /etc/nginx/sites-enabled/0-clinicmonitoring-django.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Keyin `certbot install` **shart emas**, agar `ssl_certificate` qatorlari aynan shu `live/clinicmonitoring.ziyrak.org/` ga ishora qilsa.
+
 ## 6. GitHubga push
 
 Lokal:
