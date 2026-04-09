@@ -335,12 +335,18 @@ def _handle_client(conn: socket.socket, addr: tuple) -> None:
     except Exception:
         log.exception("HL7: TCP dan keyin qurilma yangilash xato peer=%s", peer)
     buf = bytearray()
+    _first_chunk_logged = False
     try:
         conn.settimeout(300.0)
         while True:
             chunk = conn.recv(8192)
             if not chunk:
                 break
+            # Birinchi kelgan ma'lumotni DEBUG ga log qilish (diagnoz uchun)
+            if not _first_chunk_logged and chunk:
+                _first_chunk_logged = True
+                preview = chunk[:300].decode("utf-8", errors="replace").replace("\r", "\\r").replace("\n", "\\n")
+                log.info("HL7: birinchi chunk peer=%s len=%d: %r", peer, len(chunk), preview)
             if len(buf) + len(chunk) > max_buf:
                 log.warning(
                     "HL7: bufer limiti (%s bayt) oshdi peer=%s — ulanish yopildi",
