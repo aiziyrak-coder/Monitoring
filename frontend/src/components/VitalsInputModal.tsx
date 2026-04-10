@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { X, Activity, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { apiUrl } from '../lib/api';
 
 interface VitalsInputModalProps {
   patientId: string;
@@ -29,8 +30,6 @@ const EMPTY_FORM: VitalsForm = {
   rr: '',
   temp: '',
 };
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 export const VitalsInputModal: React.FC<VitalsInputModalProps> = ({
   patientId,
@@ -85,8 +84,8 @@ export const VitalsInputModal: React.FC<VitalsInputModalProps> = ({
 
     // Agar device bog'langan bo'lsa — device endpoint, aks holda patient endpoint
     const url = deviceId
-      ? `${API_BASE}/api/devices/${deviceId}/vitals`
-      : `${API_BASE}/api/patients/${patientId}/vitals`;
+      ? apiUrl(`/api/devices/${deviceId}/vitals`)
+      : apiUrl(`/api/patients/${patientId}/vitals`);
 
     try {
       const res = await fetch(url, {

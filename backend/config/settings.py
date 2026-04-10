@@ -39,6 +39,12 @@ CSRF_TRUSTED_ORIGINS = [
     ).split(",")
     if o.strip()
 ]
+_csrf_extra = [
+    o.strip()
+    for o in os.environ.get("CSRF_TRUSTED_ORIGINS_EXTRA", "").split(",")
+    if o.strip()
+]
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys([*CSRF_TRUSTED_ORIGINS, *_csrf_extra]))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -122,6 +128,12 @@ CORS_ALLOWED_ORIGINS = [
     for o in os.environ.get("CORS_ALLOWED_ORIGINS", _CORS_DEFAULT).split(",")
     if o.strip()
 ]
+_cors_extra = [
+    o.strip()
+    for o in os.environ.get("CORS_EXTRA_ORIGINS", "").split(",")
+    if o.strip()
+]
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys([*CORS_ALLOWED_ORIGINS, *_cors_extra]))
 if not DEBUG:
     CORS_ALLOW_ALL_ORIGINS = False
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

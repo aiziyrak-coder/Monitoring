@@ -12,6 +12,7 @@ import {
   type ClinicSettingsTab,
 } from '../lib/openSettings';
 import { fetchAllPatients, mergePatientsIntoStore } from '../lib/patientSync';
+import { selectBestApiOrigin, getApiConnectivityLabel } from '../lib/api';
 
 const Clock = memo(() => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -36,6 +37,8 @@ export function Dashboard() {
   const [filter, setFilter] = useState<'all' | 'critical' | 'warning' | 'pinned'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<'all' | 'reanimatsiya' | 'palata'>('all');
   const [isConnected, setIsConnected] = useState(false);
+  const [apiReady, setApiReady] = useState(false);
+  const [apiEndpointHint, setApiEndpointHint] = useState('');
   const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] =
@@ -51,28 +54,78 @@ export function Dashboard() {
     return () => window.removeEventListener(CLINIC_OPEN_SETTINGS_EVENT, onOpenSettings);
   }, []);
 
+  /** Avval ishlaydigan API ni tanlash (bulut → mahalliy fallback). */
   useEffect(() => {
+    let cancel = false;
+    void (async () => {
+      await selectBestApiOrigin(false);
+      if (!cancel) {
+        setApiEndpointHint(getApiConnectivityLabel());
+        setApiReady(true);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!apiReady) return;
     connect();
-    
     return () => {
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [apiReady, connect, disconnect]);
 
   /** Socket emit yo‘qolsa ham kartalar DB bilan sinxron bo‘lsin. */
   useEffect(() => {
+    if (!apiReady) return;
     let cancelled = false;
     const sync = async () => {
       const list = await fetchAllPatients();
       if (!cancelled && list) mergePatientsIntoStore(list);
     };
-    sync();
-    const t = window.setInterval(sync, 35_000);
+    void sync();
+    const t = window.setInterval(() => void sync(), 35_000);
     return () => {
       cancelled = true;
       window.clearInterval(t);
     };
-  }, []);
+  }, [apiReady]);
+
+  /** Uzoq vaqt socket uzilgan bo‘lsa — API ni qayta sinab, mahalliy serverga o‘tish. */
+  useEffect(() => {
+    if (!apiReady) return;
+    const id = window.setInterval(() => {
+      const s = useStore.getState().socket;
+      if (s && !s.connected) {
+        void (async () => {
+          await selectBestApiOrigin(true);
+          setApiEndpointHint(getApiConnectivityLabel());
+          useStore.getState().reconnect();
+        })();
+      }
+    }, 90_000);
+    return () => window.clearInterval(id);
+  }, [apiReady]);
+
+  /** Tab qayta ochilganda ulanishni yangilash. */
+  useEffect(() => {
+    if (!apiReady) return;
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      void (async () => {
+        await selectBestApiOrigin(false);
+        setApiEndpointHint(getApiConnectivityLabel());
+        const st = useStore.getState();
+        if (!st.socket?.connected) {
+          st.reconnect();
+        }
+      })();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [apiReady]);
 
   const patientList = useMemo(() => Object.values(patients), [patients]);
 
@@ -120,18 +173,22 @@ export function Dashboard() {
   const warningCount = useMemo(() => patientList.filter(p => p.alarm.level === 'yellow' || p.alarm.level === 'blue' || p.alarm.level === 'purple').length, [patientList]);
   const pinnedCount = useMemo(() => patientList.filter(p => p.isPinned).length, [patientList]);
 
+  if (!apiReady) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-cyan-50 text-zinc-800">
+        <Activity className="w-12 h-12 text-emerald-600 animate-pulse" />
+        <p className="mt-4 text-sm font-medium text-zinc-700">Server bilan bog‘lanilmoqda…</p>
+        <p className="mt-1 text-xs text-zinc-500 max-w-sm text-center px-4">
+          Tashqi API ishlamasa, avtomatik ravishda mahalliy manzil sinab ko‘riladi.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen text-zinc-800 font-sans selection:bg-emerald-500/30 relative bg-zinc-50">
-      {/* Background Image with Light Overlay */}
-      <div className="fixed inset-0 z-0">
-        <img 
-          src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=2053&auto=format&fit=crop" 
-          alt="Clinic Background" 
-          className="w-full h-full object-cover opacity-20"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px]"></div>
-      </div>
+      {/* Fon — tashqi rasm talab qilmaydi (to‘liq oflayn rejimga mos) */}
+      <div className="fixed inset-0 z-0 bg-gradient-to-br from-emerald-50/90 via-white to-cyan-50/85 backdrop-blur-[1px]" />
 
       {/* Content Wrapper */}
       <div className="relative z-10 min-h-screen flex flex-col">
@@ -149,6 +206,14 @@ export function Dashboard() {
                   {isConnected ? <Wifi className="w-3 h-3 mr-1" /> : <WifiOff className="w-3 h-3 mr-1" />}
                   {isConnected ? 'Online' : 'Offline'}
                 </div>
+                {apiEndpointHint ? (
+                  <span
+                    className="text-[9px] text-zinc-500 font-mono max-w-[140px] truncate"
+                    title={apiEndpointHint}
+                  >
+                    {apiEndpointHint}
+                  </span>
+                ) : null}
               </div>
             </div>
           </div>

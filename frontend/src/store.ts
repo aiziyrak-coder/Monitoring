@@ -161,6 +161,8 @@ interface AppState {
   dischargePatient: (patientId: string) => void;
   connect: () => void;
   disconnect: () => void;
+  /** API manzili o'zgarganda socket ni qayta ulanish */
+  reconnect: () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -324,7 +326,12 @@ export const useStore = create<AppState>((set, get) => ({
     const socket = get().socket;
     if (socket) {
       socket.disconnect();
+      socket.removeAllListeners();
       set({ socket: null });
     }
-  }
+  },
+  reconnect: () => {
+    get().disconnect();
+    get().connect();
+  },
 }));

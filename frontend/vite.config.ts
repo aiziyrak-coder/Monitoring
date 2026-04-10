@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 
+/** Django/uvicorn: odatda 8000 yoki 8010 — .env da VITE_DEV_PROXY_TARGET */
 const BACKEND = process.env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8000';
 
 export default defineConfig(({mode}) => {
